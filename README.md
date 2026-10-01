@@ -25,7 +25,6 @@ Lien direct vers la borne : `http://localhost:8000/#jeu`.
 | Espace | | tirer, démarrer, rejouer |
 | P | | pause |
 | Échap | | revenir dans la salle |
-| F | couper / remettre les effets néon (PC lent) | |
 
 ## Le jeu en Python pur : 4 fichiers
 
@@ -63,7 +62,7 @@ main.py → lanceur/serveur.py (Python, bibliothèque standard)
             ├─ envoie l'état du jeu au navigateur (/api/flux)
             ├─ reçoit les touches (/api/touches, /api/pause)
             └─ ouvre un terminal pour les projets 1 à 9 (/api/lancer/<n>)
-salle/ (navigateur) : index.html + salle.js (salle 3D) + jeu.js (dessin du jeu) + lib/ (Three.js, bloom, police, en local)
+salle/ (navigateur) : index.html + salle.js (salle 3D) + jeu.js (dessin du jeu) + lib/ (Three.js et police, en local)
 ```
 
 Le navigateur **n'a aucune règle du jeu** : il dessine ce que Python lui envoie et lui transmet les touches.

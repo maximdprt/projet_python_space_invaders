@@ -1,51 +1,78 @@
 // Salle d'arcade-casino 3D. Le jeu tourne en Python sur le serveur : ici on affiche et on envoie les touches.
+// Optimisation : pas de post-traitement, matériaux simples, et toutes les animations de lumière
+// sont calculées par la carte graphique (un seul shader, une seule valeur "temps" envoyée par image).
 import * as THREE from "three";
-import { EffectComposer } from "./lib/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "./lib/addons/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "./lib/addons/postprocessing/UnrealBloomPass.js";
-import { OutputPass } from "./lib/addons/postprocessing/OutputPass.js";
-import { RoomEnvironment } from "./lib/addons/environments/RoomEnvironment.js";
 import { creerEcranJeu } from "./jeu.js";
 
 const $ = (id) => document.getElementById(id);
 await document.fonts.load("16px Pixel");
 const projets = await (await fetch("/api/projets")).json();
 
-// ---------- Moteur : rendu HDR + bloom (les néons brillent vraiment) ----------
-const rendu = new THREE.WebGLRenderer({ powerPreference: "high-performance" });
+// ---------- Moteur ----------
+const rendu = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 rendu.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 rendu.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.prepend(rendu.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#06020c");
-scene.fog = new THREE.FogExp2("#0a0414", 0.022);
-scene.environment = new THREE.PMREMGenerator(rendu).fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.04;
-const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 80);
+scene.fog = new THREE.Fog("#06020c", 14, 32);
+const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 60);
 camera.rotation.order = "YXZ";
-const composeur = new EffectComposer(rendu, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
-composeur.setPixelRatio(rendu.getPixelRatio());
-composeur.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.7, 0.4, 1);
-composeur.addPass(bloom);
-composeur.addPass(new OutputPass());
 function redimensionner() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   rendu.setSize(innerWidth, innerHeight);
-  composeur.setSize(innerWidth, innerHeight);
 }
 redimensionner();
 addEventListener("resize", redimensionner);
 
+// ---------- Animations de casino, calculées par la carte graphique ----------
+// 1 = néon qui respire, 2 = chenillard d'ampoules, 3 = néon qui grésille de temps en temps.
+const temps = { value: 0 };
+function lumiere(couleur, motif = 0, carte = null) {
+  return new THREE.ShaderMaterial({
+    uniforms: { temps, couleur: { value: new THREE.Color(couleur) }, carte: { value: carte } },
+    defines: carte ? { MOTIF: motif, CARTE: 1 } : { MOTIF: motif },
+    transparent: !!carte, depthWrite: !carte, blending: carte ? THREE.AdditiveBlending : THREE.NormalBlending,
+    vertexShader: `
+      varying vec2 vUv; varying float vId;
+      void main() {
+        vUv = uv;
+        vId = float(gl_InstanceID) + modelMatrix[3].x * 0.7 + modelMatrix[3].z * 0.37;
+        vec4 p = vec4(position, 1.0);
+        #ifdef USE_INSTANCING
+          p = instanceMatrix * p;
+        #endif
+        gl_Position = projectionMatrix * modelViewMatrix * p;
+      }`,
+    fragmentShader: `
+      uniform float temps; uniform vec3 couleur; uniform sampler2D carte;
+      varying vec2 vUv; varying float vId;
+      void main() {
+        float k = 1.0;
+        #if MOTIF == 1
+          k = 0.7 + 0.3 * sin(temps * 1.6 + vId);
+        #elif MOTIF == 2
+          k = mod(floor(vId) - floor(temps * 7.0), 3.0) < 1.0 ? 0.2 : 1.0;
+        #elif MOTIF == 3
+          k = fract(sin(floor(temps * 10.0) + vId) * 43758.5) > 0.96 ? 0.25 : 1.0;
+        #endif
+        vec4 c = vec4(couleur * k, 1.0);
+        #ifdef CARTE
+          c *= texture2D(carte, vUv);
+        #endif
+        gl_FragColor = c;
+        #include <colorspace_fragment>
+      }`,
+  });
+}
+
 // ---------- Petits outils ----------
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-const HDR = (couleur, force = 3) => new THREE.Color(couleur).multiplyScalar(force);
-const neon = (couleur, force = 3) => new THREE.MeshBasicMaterial({ color: HDR(couleur, force) });
-const brillant = (couleur, rugosite = 0.3, metal = 0.1) => new THREE.MeshStandardMaterial({ color: couleur, roughness: rugosite, metalness: metal });
-const OR = brillant("#d6a84c", 0.25, 1);
-const LAQUE = brillant("#0b0712", 0.12, 0.2);
-const NOIR = brillant("#09060e", 0.6);
+const mat = (couleur, brillance = 30) => new THREE.MeshPhongMaterial({ color: couleur, shininess: brillance });
+const OR = new THREE.MeshPhongMaterial({ color: "#c9973a", specular: "#ffe7a8", shininess: 90 });
+const LAQUE = new THREE.MeshPhongMaterial({ color: "#0b0712", specular: "#6a5a80", shininess: 120 });
+const NOIR = mat("#0a070f");
 
 function toile(l, h, dessin, rx = 1, ry = rx) {
   const c = document.createElement("canvas");
@@ -53,7 +80,7 @@ function toile(l, h, dessin, rx = 1, ry = rx) {
   dessin(c.getContext("2d"), l, h);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = 4;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
   return t;
@@ -65,168 +92,114 @@ function ajouter(geometrie, materiau, x, y, z, ry = 0, parent = scene) {
   parent.add(m);
   return m;
 }
-const pose = (x, y, z, ry = 0, rx = 0) => new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0)), V3(1, 1, 1));
-// Une seule instruction de dessin pour toutes les copies d'un objet (machines à sous, ampoules...).
-function instances(geometrie, materiau, bases, local = pose(0, 0, 0)) {
-  const m = new THREE.InstancedMesh(geometrie, materiau, bases.length);
-  bases.forEach((b, i) => m.setMatrixAt(i, b.clone().multiply(local)));
-  scene.add(m);
-  return m;
-}
-function enseigne(texte, couleur, largeur, x, y, z, ry, taille = 120, force = 1.4) {
-  const t = toile(1024, 200, (g, l, h) => {
-    g.font = `${taille}px Pixel`; g.textAlign = "center"; g.textBaseline = "middle";
-    g.shadowColor = couleur; g.shadowBlur = 25;
-    g.strokeStyle = couleur; g.lineWidth = 10; g.strokeText(texte, l / 2, h / 2, l - 40);
-    g.fillStyle = "#fff"; g.fillText(texte, l / 2, h / 2, l - 40);
-  });
-  const mat = new THREE.MeshBasicMaterial({ map: t, color: HDR("#fff", force), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-  return ajouter(new THREE.PlaneGeometry(largeur, largeur / 5.12), mat, x, y, z, ry);
-}
+const pose = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
 const obstacles = [];
 
-// ---------- Architecture : moquette de casino, allée en marbre, murs, plafond à caissons ----------
-const LX = 13, Z0 = 8, Z1 = -24, HT = 5.5, PZ = (Z0 + Z1) / 2, PL = Z0 - Z1;
-const sol = ajouter(new THREE.PlaneGeometry(2 * LX, PL), brillant("#fff", 0.9), 0, 0, PZ);
-sol.rotation.x = -Math.PI / 2;
-sol.material.map = toile(256, 256, (g) => {
-  g.fillStyle = "#1a0a2c"; g.fillRect(0, 0, 256, 256);
-  for (const [x, y] of [[0, 0], [256, 0], [0, 256], [256, 256], [128, 128]]) {
-    g.strokeStyle = "#d6a84c"; g.lineWidth = 5; g.beginPath(); g.arc(x, y, 58, 0, 7); g.stroke();
-    g.fillStyle = "#3b0f52"; g.beginPath(); g.arc(x, y, 44, 0, 7); g.fill();
-    g.fillStyle = "#e0306f"; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill();
-  }
-  g.fillStyle = "#1fb5b0";
-  for (const [x, y] of [[128, 0], [0, 128], [256, 128], [128, 256]]) { g.beginPath(); g.moveTo(x, y - 22); g.lineTo(x + 22, y); g.lineTo(x, y + 22); g.lineTo(x - 22, y); g.fill(); }
-}, 10, 12);
-const allee = ajouter(new THREE.PlaneGeometry(6.4, PL - 4), brillant("#fff", 0.14, 0.1), 0, 0.004, PZ + 2);
-allee.rotation.x = -Math.PI / 2;
-allee.material.map = toile(256, 256, (g) => {
-  g.fillStyle = "#07050b"; g.fillRect(0, 0, 256, 256);
-  g.strokeStyle = "#2a1d3d"; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256);
-  g.strokeStyle = "#ffffff10"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 60); g.bezierCurveTo(90, 120, 160, 20, 256, 200); g.stroke();
-}, 3, 13);
-const tapis = ajouter(new THREE.PlaneGeometry(1.8, 24), new THREE.MeshStandardMaterial({ roughness: 0.95 }), 0, 0.01, -6);
-tapis.rotation.x = -Math.PI / 2;
-tapis.material.map = toile(64, 128, (g) => {
-  g.fillStyle = "#7d0b1c"; g.fillRect(0, 0, 64, 128);
-  g.fillStyle = "#d6a84c"; g.fillRect(3, 0, 3, 128); g.fillRect(58, 0, 3, 128);
-  g.fillStyle = "#9c1328"; g.beginPath(); g.moveTo(32, 20); g.lineTo(48, 64); g.lineTo(32, 108); g.lineTo(16, 64); g.fill();
-}, 1, 12);
+// Halo lumineux "cuit" dans une texture : remplace le bloom pour un coût quasi nul.
+const degrade = toile(4, 64, (g) => {
+  const d = g.createLinearGradient(0, 0, 0, 64);
+  d.addColorStop(0, "#0000"); d.addColorStop(0.5, "#fff"); d.addColorStop(1, "#0000");
+  g.fillStyle = d; g.fillRect(0, 0, 4, 64);
+});
+function neon(longueur, couleur, x, y, z, ry, motif = 1) {
+  ajouter(new THREE.BoxGeometry(longueur, 0.045, 0.045), lumiere(couleur, motif), x, y, z, ry);
+  const halo = new THREE.MeshBasicMaterial({ map: degrade, color: couleur, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+  ajouter(new THREE.PlaneGeometry(longueur, 0.9), halo, x, y, z, ry).translateZ(0.03);
+}
+function enseigne(texte, couleur, largeur, x, y, z, ry, motif = 1, taille = 120) {
+  const carte = toile(1024, 200, (g, l, h) => {
+    g.font = `${taille}px Pixel`; g.textAlign = "center"; g.textBaseline = "middle";
+    g.shadowColor = couleur; g.shadowBlur = 30;
+    g.strokeStyle = couleur; g.lineWidth = 10; g.strokeText(texte, l / 2, h / 2, l - 40);
+    g.shadowBlur = 0; g.fillStyle = "#fff"; g.fillText(texte, l / 2, h / 2, l - 40);
+  });
+  return ajouter(new THREE.PlaneGeometry(largeur, largeur / 5.12), lumiere("#fff", motif, carte), x, y, z, ry);
+}
 
-const murs = brillant("#fff", 0.55);
-murs.map = toile(256, 512, (g) => {
-  g.fillStyle = "#120a1d"; g.fillRect(0, 0, 256, 512);
-  g.strokeStyle = "#2b1742"; g.lineWidth = 8; g.strokeRect(24, 40, 208, 432);
-  g.strokeStyle = "#d6a84c55"; g.lineWidth = 2; g.strokeRect(36, 52, 184, 408);
-}, 12, 1);
+// ---------- Architecture ----------
+const LX = 8, Z0 = 8, Z1 = -24, HT = 5, PZ = (Z0 + Z1) / 2, PL = Z0 - Z1;
+const sol = ajouter(new THREE.PlaneGeometry(2 * LX, PL), new THREE.MeshLambertMaterial({
+  map: toile(256, 256, (g) => {
+    g.fillStyle = "#1a0a2c"; g.fillRect(0, 0, 256, 256);
+    for (const [x, y] of [[0, 0], [256, 0], [0, 256], [256, 256], [128, 128]]) {
+      g.strokeStyle = "#c9973a"; g.lineWidth = 5; g.beginPath(); g.arc(x, y, 58, 0, 7); g.stroke();
+      g.fillStyle = "#3b0f52"; g.beginPath(); g.arc(x, y, 44, 0, 7); g.fill();
+      g.fillStyle = "#c42a63"; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill();
+    }
+    g.fillStyle = "#1a9c98";
+    for (const [x, y] of [[128, 0], [0, 128], [256, 128], [128, 256]]) { g.beginPath(); g.moveTo(x, y - 22); g.lineTo(x + 22, y); g.lineTo(x, y + 22); g.lineTo(x - 22, y); g.fill(); }
+  }, 8, 16),
+}), 0, 0, PZ);
+sol.rotation.x = -Math.PI / 2;
+const allee = ajouter(new THREE.PlaneGeometry(6.2, PL - 4), new THREE.MeshPhongMaterial({
+  shininess: 140, specular: "#4a3a66",
+  map: toile(256, 256, (g) => {
+    g.fillStyle = "#07050b"; g.fillRect(0, 0, 256, 256);
+    g.strokeStyle = "#2a1d3d"; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256);
+    g.strokeStyle = "#ffffff12"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 60); g.bezierCurveTo(90, 120, 160, 20, 256, 200); g.stroke();
+  }, 3, 13),
+}), 0, 0.004, PZ + 2);
+allee.rotation.x = -Math.PI / 2;
+const tapis = ajouter(new THREE.PlaneGeometry(1.8, 24), new THREE.MeshLambertMaterial({
+  map: toile(64, 128, (g) => {
+    g.fillStyle = "#7d0b1c"; g.fillRect(0, 0, 64, 128);
+    g.fillStyle = "#c9973a"; g.fillRect(3, 0, 3, 128); g.fillRect(58, 0, 3, 128);
+    g.fillStyle = "#9c1328"; g.beginPath(); g.moveTo(32, 20); g.lineTo(48, 64); g.lineTo(32, 108); g.lineTo(16, 64); g.fill();
+  }, 1, 12),
+}), 0, 0.01, -6);
+tapis.rotation.x = -Math.PI / 2;
+
+const murs = new THREE.MeshLambertMaterial({
+  map: toile(256, 512, (g) => {
+    g.fillStyle = "#140b20"; g.fillRect(0, 0, 256, 512);
+    g.strokeStyle = "#2b1742"; g.lineWidth = 8; g.strokeRect(24, 40, 208, 432);
+    g.strokeStyle = "#c9973a66"; g.lineWidth = 2; g.strokeRect(36, 52, 184, 408);
+  }, 12, 1),
+});
 for (const [l, x, z, ry] of [[PL, -LX, PZ, Math.PI / 2], [PL, LX, PZ, -Math.PI / 2], [2 * LX, 0, Z1, 0], [2 * LX, 0, Z0, Math.PI]])
   ajouter(new THREE.PlaneGeometry(l, HT), murs, x, HT / 2, z, ry);
-const plafond = ajouter(new THREE.PlaneGeometry(2 * LX, PL), brillant("#07040b", 0.8), 0, HT, PZ);
+const plafond = ajouter(new THREE.PlaneGeometry(2 * LX, PL), mat("#08050d"), 0, HT, PZ);
 plafond.rotation.x = Math.PI / 2;
-for (let x = -9; x <= 9; x += 4.5) ajouter(new THREE.BoxGeometry(0.12, 0.1, PL), OR, x, HT - 0.05, PZ);
-for (let z = Z0 - 2; z > Z1; z -= 5) ajouter(new THREE.BoxGeometry(2 * LX, 0.1, 0.12), OR, 0, HT - 0.05, z);
-// Néons de corniche et de plinthe
-for (const [x, c] of [[-LX + 0.03, "#ff2bd6"], [LX - 0.03, "#22f5ff"]])
-  for (const y of [0.12, HT - 0.35]) ajouter(new THREE.BoxGeometry(0.04, 0.05, PL), neon(c), x, y, PZ);
-ajouter(new THREE.BoxGeometry(2 * LX, 0.05, 0.04), neon("#ffc06a"), 0, HT - 0.35, Z1 + 0.03);
+for (const x of [-3.2, 3.2]) ajouter(new THREE.BoxGeometry(0.12, 0.1, PL), OR, x, HT - 0.05, PZ);
+for (let z = Z0 - 2; z > Z1; z -= 4) ajouter(new THREE.BoxGeometry(6.4, 0.1, 0.12), OR, 0, HT - 0.05, z);
+
+// Néons qui respirent : plinthes, corniches, plafond
+for (const [x, c] of [[-LX + 0.05, "#ff2bd6"], [LX - 0.05, "#22f5ff"]]) {
+  const ry = x < 0 ? Math.PI / 2 : -Math.PI / 2;
+  neon(PL, c, x, 0.15, PZ, ry);
+  neon(PL, c, x, HT - 0.3, PZ, ry);
+}
+neon(2 * LX, "#ffb347", 0, HT - 0.3, Z1 + 0.05, 0);
+for (const x of [-3.2, 3.2]) ajouter(new THREE.BoxGeometry(0.04, 0.04, PL - 4), lumiere(x < 0 ? "#ff2bd6" : "#22f5ff", 1), x, HT - 0.14, PZ);
 
 // Colonnes laquées à bagues dorées
-const colonnes = [];
-for (const x of [-7.4, 7.4]) for (const z of [5, -6.5, -17]) { colonnes.push(pose(x, 0, z)); obstacles.push({ x, z, r: 0.55 }); }
-instances(new THREE.CylinderGeometry(0.35, 0.35, HT, 24), LAQUE, colonnes, pose(0, HT / 2, 0));
-for (const y of [0.1, 1.2, HT - 0.6]) instances(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 24), OR, colonnes, pose(0, y, 0));
-instances(new THREE.BoxGeometry(0.05, 3, 0.05), neon("#ff2bd6", 2.5), colonnes, pose(0, 2.6, 0.36));
+for (const x of [-6.4, 6.4]) for (const z of [5, -4, -13]) {
+  ajouter(new THREE.CylinderGeometry(0.32, 0.32, HT, 20), LAQUE, x, HT / 2, z);
+  for (const y of [0.08, 1.1, HT - 0.5]) ajouter(new THREE.CylinderGeometry(0.37, 0.37, 0.09, 20), OR, x, y, z);
+  obstacles.push({ x, z, r: 0.5 });
+}
 
-// ---------- Machines à sous le long des murs (instanciées) ----------
-const rouleaux = toile(128, 512, (g) => {
-  g.fillStyle = "#fff8e6"; g.fillRect(0, 0, 128, 512);
-  g.textAlign = "center"; g.textBaseline = "middle";
-  ["7", "🍒", "BAR", "💎", "🔔", "🍋"].forEach((s, i) => {
-    g.font = s === "7" || s === "BAR" ? "bold 44px Pixel" : "54px 'Segoe UI Emoji'";
-    g.fillStyle = s === "7" ? "#e0102f" : "#1a1a1a";
-    g.fillText(s, 64, 42 + i * 85);
+// Banquettes de velours le long des murs, sous les grands symboles de cartes en néon
+const VELOURS = mat("#5c0b22", 8);
+const symboles = [["♠", "#22f5ff"], ["♥", "#ff2bd6"], ["♦", "#ffb347"], ["♣", "#7dff3a"]];
+for (const cote of [-1, 1]) for (let i = 0; i < 4; i++) {
+  const z = 1 - i * 6.2, x = cote * (LX - 0.45), ry = -cote * Math.PI / 2;
+  ajouter(new THREE.BoxGeometry(2.6, 0.45, 0.6), VELOURS, x, 0.22, z, ry);
+  ajouter(new THREE.BoxGeometry(2.6, 0.7, 0.18), VELOURS, cote * (LX - 0.12), 0.75, z, ry);
+  ajouter(new THREE.BoxGeometry(2.7, 0.05, 0.65), OR, x, 0.02, z, ry);
+  const [s, c] = symboles[(i + (cote > 0 ? 2 : 0)) % 4];
+  const carte = toile(256, 256, (g) => {
+    g.font = "200px serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.shadowColor = c; g.shadowBlur = 24; g.strokeStyle = c; g.lineWidth = 8; g.strokeText(s, 128, 140);
   });
-}, 3, 0.45);
-const fronton = toile(256, 128, (g) => {
-  const d = g.createLinearGradient(0, 0, 0, 128); d.addColorStop(0, "#4a0b6b"); d.addColorStop(1, "#13021f");
-  g.fillStyle = d; g.fillRect(0, 0, 256, 128);
-  g.textAlign = "center"; g.font = "38px Pixel"; g.fillStyle = "#ffd84a"; g.shadowColor = "#ff8a00"; g.shadowBlur = 14;
-  g.fillText("777", 128, 62); g.font = "16px Pixel"; g.fillStyle = "#fff"; g.fillText("JACKPOT", 128, 100);
-});
-const machines = [];
-for (const [x, ry] of [[-LX + 0.55, Math.PI / 2], [LX - 0.55, -Math.PI / 2]])
-  for (let z = 5.5; z > -17.5; z -= 1.05) machines.push(pose(x, 0, z, ry));
-const teintes = ["#7a0f2a", "#3b1470", "#0f4a6e", "#6e4a0f"];
-const corps = instances(new THREE.BoxGeometry(0.78, 1.2, 0.66), brillant("#fff", 0.25, 0.4), machines, pose(0, 0.6, 0));
-const tetes = instances(new THREE.BoxGeometry(0.78, 0.62, 0.5), brillant("#fff", 0.25, 0.4), machines, pose(0, 1.52, -0.08));
-machines.forEach((m, i) => { corps.setColorAt(i, new THREE.Color(teintes[i % 4])); tetes.setColorAt(i, new THREE.Color(teintes[(i + 1) % 4])); });
-instances(new THREE.PlaneGeometry(0.56, 0.3), new THREE.MeshBasicMaterial({ map: rouleaux, color: HDR("#fff", 0.75) }), machines, pose(0, 1.0, 0.335));
-instances(new THREE.PlaneGeometry(0.66, 0.46), new THREE.MeshBasicMaterial({ map: fronton, color: HDR("#fff", 1.2) }), machines, pose(0, 1.52, 0.175));
-instances(new THREE.BoxGeometry(0.8, 0.025, 0.025), neon("#ffc06a", 3), machines, pose(0, 1.2, 0.34));
-const gyros = instances(new THREE.SphereGeometry(0.11, 12, 8), new THREE.MeshBasicMaterial(), machines, pose(0, 1.92, 0));
-instances(new THREE.CylinderGeometry(0.2, 0.2, 0.07, 16), brillant("#8a0f22", 0.5), machines, pose(0, 0.68, 0.85));
-instances(new THREE.CylinderGeometry(0.035, 0.05, 0.66, 8), OR, machines, pose(0, 0.33, 0.85));
+  ajouter(new THREE.PlaneGeometry(1.5, 1.5), lumiere("#fff", 1, carte), cote * (LX - 0.06), 2.7, z, ry);
+  obstacles.push({ x: cote * (LX - 0.4), z: z - 0.9, r: 0.6 }, { x: cote * (LX - 0.4), z: z + 0.9, r: 0.6 });
+}
+enseigne("JACKPOT", "#ffb347", 4.5, -LX + 0.06, 4.1, -14, Math.PI / 2, 3);
+enseigne("777 CASINO", "#ff3b3b", 4.5, LX - 0.06, 4.1, -14, -Math.PI / 2, 3);
+enseigne("INSERT COIN", "#7dff3a", 3.6, 0, 3.9, Z0 - 0.06, Math.PI, 1, 90);
 
-// ---------- Tables de jeu : blackjack et roulette, sous des lampes suspendues ----------
-const ABAT_JOUR = brillant("#d6a84c", 0.25, 1);
-ABAT_JOUR.side = THREE.DoubleSide;
-const BOIS = brillant("#3a1a0c", 0.4);
-function feutre(dessin) {
-  const map = toile(512, 512, (g, l, h) => { g.fillStyle = "#0b5a35"; g.fillRect(0, 0, l, h); dessin(g, l, h); });
-  return new THREE.MeshStandardMaterial({ map, emissiveMap: map, emissive: "#fff", emissiveIntensity: 0.5, roughness: 1 });
-}
-function lampe(x, z) {
-  ajouter(new THREE.CylinderGeometry(0.3, 0.55, 0.35, 24, 1, true), ABAT_JOUR, x, HT - 1.6, z);
-  ajouter(new THREE.CircleGeometry(0.5, 24), neon("#ffd9a0", 2.5), x, HT - 1.76, z).rotation.x = Math.PI / 2;
-  ajouter(new THREE.CylinderGeometry(0.01, 0.01, 1.4, 4), NOIR, x, HT - 0.7, z);
-}
-function blackjack(x, z, ry) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
-  ajouter(new THREE.CylinderGeometry(1.3, 1.3, 0.08, 40, 1, false, -Math.PI / 2, Math.PI), feutre((c) => {
-    c.strokeStyle = "#d6a84c"; c.lineWidth = 4; c.beginPath(); c.arc(256, 256, 200, 0, 7); c.stroke();
-    c.font = "18px Pixel"; c.fillStyle = "#f3d27a"; c.textAlign = "center"; c.fillText("BLACKJACK", 256, 330);
-  }), 0, 0.8, 0, 0, g);
-  ajouter(new THREE.TorusGeometry(1.3, 0.07, 8, 40, Math.PI), BOIS, 0, 0.84, 0, 0, g).rotation.x = Math.PI / 2;
-  ajouter(new THREE.CylinderGeometry(0.4, 0.55, 0.8, 16), NOIR, 0, 0.4, 0.3, 0, g);
-  for (let i = 0; i < 5; i++) {
-    const a = -Math.PI / 2 + (i + 0.5) * (Math.PI / 5);
-    ajouter(new THREE.PlaneGeometry(0.12, 0.17), new THREE.MeshBasicMaterial({ color: "#f4f4f4" }), Math.sin(a) * 0.95, 0.85, Math.cos(a) * 0.95, 0, g).rotation.x = -Math.PI / 2;
-    ajouter(new THREE.CylinderGeometry(0.06, 0.06, 0.09, 12), brillant(["#d61c2c", "#1c4fd6", "#111", "#18a050", "#d6a84c"][i], 0.3), Math.sin(a) * 0.7, 0.89, Math.cos(a) * 0.7, 0, g);
-  }
-  obstacles.push({ x, z, r: 1.6 });
-  lampe(x, z);
-}
-const roues = [];
-function roulette(x, z) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
-  ajouter(new THREE.BoxGeometry(1.4, 0.08, 2.6), feutre((c) => {
-    for (let i = 0; i < 36; i++) {
-      c.fillStyle = (i * 7) % 3 === 0 ? "#b0102a" : "#111";
-      c.fillRect(140 + (i % 3) * 80, 160 + Math.floor(i / 3) * 28, 76, 25);
-    }
-  }), 0, 0.8, 0, 0, g);
-  ajouter(new THREE.BoxGeometry(1.5, 0.12, 2.7), BOIS, 0, 0.72, 0, 0, g);
-  ajouter(new THREE.CylinderGeometry(0.5, 0.6, 0.72, 16), NOIR, 0, 0.36, 0, 0, g);
-  const roue = ajouter(new THREE.CylinderGeometry(0.42, 0.46, 0.1, 37), brillant("#fff", 0.3), 0, 0.9, -0.85, 0, g);
-  roue.material.map = toile(256, 256, (c) => {
-    for (let i = 0; i < 37; i++) {
-      c.fillStyle = i === 0 ? "#0b7a3a" : i % 2 ? "#b0102a" : "#111";
-      c.beginPath(); c.moveTo(128, 128); c.arc(128, 128, 128, (i * 2 * Math.PI) / 37, ((i + 1) * 2 * Math.PI) / 37); c.fill();
-    }
-    c.fillStyle = "#5a2c10"; c.beginPath(); c.arc(128, 128, 60, 0, 7); c.fill();
-  });
-  ajouter(new THREE.ConeGeometry(0.1, 0.16, 12), OR, 0, 0.12, 0, 0, roue);
-  roues.push(roue);
-  obstacles.push({ x, z: z + 0.7, r: 1.1 }, { x, z: z - 0.7, r: 1.1 });
-  lampe(x, z);
-}
-blackjack(-9.6, -1.5, Math.PI / 2);
-roulette(-9.6, -11);
-roulette(9.6, -1.5);
-blackjack(9.6, -11, -Math.PI / 2);
-
-// ---------- Bornes d'arcade (vrai profil extrudé, partagé par les 10 bornes) ----------
+// ---------- Bornes d'arcade (profil extrudé partagé par les 10 bornes) ----------
 const PROFIL = [[-0.42, 0], [0.32, 0], [0.32, 0.92], [0.52, 1.0], [0.5, 1.08], [0.3, 1.14], [0.18, 1.7], [0.36, 1.78], [0.36, 2.05], [-0.42, 2.05]];
 const geoBorne = new THREE.ExtrudeGeometry(new THREE.Shape(PROFIL.map(([z, y]) => new THREE.Vector2(z, y))), { depth: 0.8, bevelEnabled: false })
   .translate(0, 0, -0.4).rotateY(-Math.PI / 2);
@@ -269,20 +242,21 @@ function creerBorne(p, x, z, ry, echelle = 1, y = 0) {
   g.scale.setScalar(echelle);
   scene.add(g);
   const couleur = new THREE.Color(p.couleur);
-  ajouter(geoBorne, [brillant(couleur.clone().multiplyScalar(0.6), 0.2, 0.3), LAQUE], 0, 0, 0, 0, g);
+  ajouter(geoBorne, [mat(couleur.clone().multiplyScalar(0.7), 60), LAQUE], 0, 0, 0, 0, g);
   for (const cote of [-0.405, 0.405]) {
-    const contour = new THREE.LineLoop(geoContour, new THREE.LineBasicMaterial({ color: HDR(couleur.clone().lerp(new THREE.Color("#fff"), 0.3), 2.5) }));
+    const contour = new THREE.LineLoop(geoContour, new THREE.LineBasicMaterial({ color: couleur.clone().lerp(new THREE.Color("#fff"), 0.4), toneMapped: false }));
     contour.position.x = cote;
     g.add(contour);
   }
-  const ecran = ajouter(geoEcran, new THREE.MeshBasicMaterial({ map: p.numero === 10 ? texJeu : ecranAttente(p), color: HDR("#fff", 1.15) }), 0, 1.425, 0.252, 0, g);
+  const ecran = ajouter(geoEcran, new THREE.MeshBasicMaterial({ map: p.numero === 10 ? texJeu : ecranAttente(p), toneMapped: false }), 0, 1.425, 0.252, 0, g);
   ecran.rotation.x = -0.211;
-  ajouter(new THREE.PlaneGeometry(0.78, 0.25), new THREE.MeshBasicMaterial({ map: marquee(p), color: HDR("#fff", 1.15) }), 0, 1.915, 0.362, 0, g);
-  ajouter(new THREE.SphereGeometry(0.035, 10, 8), neon("#ff3b3b", 2), -0.2, 1.2, 0.42, 0, g);
+  ajouter(new THREE.PlaneGeometry(0.78, 0.25), new THREE.MeshBasicMaterial({ map: marquee(p), toneMapped: false }), 0, 1.915, 0.362, 0, g);
+  ajouter(new THREE.SphereGeometry(0.035, 10, 8), mat("#e0202c", 80), -0.2, 1.2, 0.42, 0, g);
   ajouter(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 6), NOIR, -0.2, 1.15, 0.42, 0, g);
-  [["#22f5ff", 0.02], ["#ffc83d", 0.12], ["#7dff3a", 0.22]].forEach(([c, bx]) => ajouter(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), neon(c, 2), bx, 1.125, 0.42, 0, g));
-  ajouter(new THREE.BoxGeometry(0.8, 0.03, 0.02), neon(p.couleur, 3), 0, 0.05, 0.33, 0, g);
-  for (const cx of [-0.07, 0.07]) ajouter(new THREE.PlaneGeometry(0.05, 0.09), neon("#ff7a1a", 3), cx, 0.55, 0.322, 0, g);
+  [["#22f5ff", 0.02], ["#ffc83d", 0.12], ["#7dff3a", 0.22]].forEach(([c, bx]) =>
+    ajouter(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), new THREE.MeshBasicMaterial({ color: c, toneMapped: false }), bx, 1.125, 0.42, 0, g));
+  ajouter(new THREE.BoxGeometry(0.8, 0.03, 0.02), lumiere(p.couleur, 1), 0, 0.05, 0.33, 0, g);
+  ajouter(new THREE.PlaneGeometry(0.12, 0.09), lumiere("#ff7a1a", 3), 0, 0.55, 0.322, 0, g);
   g.updateMatrixWorld(true);
   const centre = ecran.getWorldPosition(V3());
   const vue = new THREE.PerspectiveCamera();
@@ -293,49 +267,41 @@ function creerBorne(p, x, z, ry, echelle = 1, y = 0) {
 }
 projets.filter((p) => p.numero !== 10).forEach((p, i) => {
   const gauche = i < 5;
-  creerBorne(p, gauche ? -4.6 : 4.6, 2.5 - (gauche ? i : i - 5) * 3.3, gauche ? Math.PI / 2 : -Math.PI / 2);
+  creerBorne(p, gauche ? -4.3 : 4.3, 2.5 - (gauche ? i : i - 5) * 3.3, gauche ? Math.PI / 2 : -Math.PI / 2);
 });
 
-// ---------- Scène de la borne 10 : estrade, enseigne, guirlandes d'ampoules, faisceaux ----------
-ajouter(new THREE.BoxGeometry(7, 0.3, 4.6), LAQUE, 0, 0.15, -21.5);
-ajouter(new THREE.BoxGeometry(7, 0.04, 0.04), neon("#ff2bd6", 4), 0, 0.3, -19.2);
-creerBorne(projets.find((p) => p.numero === 10), 0, -21, 0, 1.2, 0.3);
-ajouter(new THREE.BoxGeometry(8.6, 2.3, 0.1), LAQUE, 0, 3.95, Z1 + 0.06);
-enseigne("EUGENIA", "#ff2bd6", 5.4, 0, 4.4, Z1 + 0.15, 0, 120, 1.1);
-enseigne("ARCADE", "#22f5ff", 4.4, 0, 3.4, Z1 + 0.15, 0, 120, 1.1);
-enseigne("JACKPOT", "#ffc83d", 5, -LX + 0.06, 3.9, -6, Math.PI / 2, 120, 0.9);
-enseigne("777 CASINO", "#ff3b3b", 5, LX - 0.06, 3.9, -6, -Math.PI / 2, 120, 0.9);
-enseigne("INSERT COIN", "#7dff3a", 4, 0, 4.2, Z0 - 0.06, Math.PI, 90, 1);
-const faisceaux = [];
-for (const cote of [-1, 1]) {
-  const haut = V3(cote * 3, HT, -20.2), bas = V3(0, 0.3, -21);
-  const faisceau = new THREE.Mesh(new THREE.ConeGeometry(1.1, haut.distanceTo(bas), 24, 1, true),
-    new THREE.MeshBasicMaterial({ color: "#ffcf8a", transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-  faisceau.position.copy(haut).add(bas).multiplyScalar(0.5);
-  faisceau.quaternion.setFromUnitVectors(V3(0, 1, 0), haut.clone().sub(bas).normalize());
-  scene.add(faisceau);
-  faisceaux.push(faisceau);
-}
-const positionsAmpoules = [];
-for (let x = -4.2; x <= 4.2; x += 0.28) positionsAmpoules.push(pose(x, 5.0, Z1 + 0.15), pose(x, 2.9, Z1 + 0.15));
-for (let y = 3.18; y < 5.0; y += 0.28) positionsAmpoules.push(pose(-4.2, y, Z1 + 0.15), pose(4.2, y, Z1 + 0.15));
-for (let x = -3.4; x <= 3.4; x += 0.3) positionsAmpoules.push(pose(x, 0.36, -19.2));
-for (let i = 0; i < 48; i++) positionsAmpoules.push(pose(Math.cos((i / 48) * 6.283) * 2.2, HT - 0.25, -5 + Math.sin((i / 48) * 6.283) * 2.2));
-const ampoules = instances(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial(), positionsAmpoules);
-const boule = ajouter(new THREE.IcosahedronGeometry(0.45, 2), new THREE.MeshStandardMaterial({ metalness: 1, roughness: 0.05, flatShading: true }), 0, HT - 0.9, -5);
+// ---------- Scène de la borne 10 : estrade, enseigne, chenillard d'ampoules ----------
+ajouter(new THREE.BoxGeometry(6.4, 0.3, 4.4), LAQUE, 0, 0.15, -21.8);
+ajouter(new THREE.BoxGeometry(6.4, 0.04, 0.04), lumiere("#ff2bd6", 1), 0, 0.3, -19.6);
+creerBorne(projets.find((p) => p.numero === 10), 0, -21.4, 0, 1.2, 0.3);
+ajouter(new THREE.BoxGeometry(8.2, 2.1, 0.1), LAQUE, 0, 3.95, Z1 + 0.06);
+enseigne("EUGENIA", "#ff2bd6", 5.2, 0, 4.4, Z1 + 0.15, 0, 3);
+enseigne("ARCADE", "#22f5ff", 4.2, 0, 3.5, Z1 + 0.15, 0, 1);
+// Chenillard : ampoules du cadre de l'enseigne, du bord de l'estrade et du lustre (une seule instruction de dessin).
+const ampoules = [];
+for (let x = -4; x <= 4; x += 0.27) ampoules.push(pose(x, 4.95, Z1 + 0.15));
+for (let y = 4.68; y > 2.95; y -= 0.27) ampoules.push(pose(4, y, Z1 + 0.15));
+for (let x = 4; x >= -4; x -= 0.27) ampoules.push(pose(x, 2.95, Z1 + 0.15));
+for (let y = 3.22; y < 4.95; y += 0.27) ampoules.push(pose(-4, y, Z1 + 0.15));
+for (let x = -3.1; x <= 3.1; x += 0.3) ampoules.push(pose(x, 0.36, -19.6));
+for (let i = 0; i < 40; i++) ampoules.push(pose(Math.cos((i / 40) * 6.283) * 1.8, HT - 0.3, -6 + Math.sin((i / 40) * 6.283) * 1.8));
+const geoAmpoule = new THREE.SphereGeometry(0.045, 8, 6);
+const lustre = new THREE.InstancedMesh(geoAmpoule, lumiere("#ffd27a", 2), ampoules.length);
+ampoules.forEach((m, i) => lustre.setMatrixAt(i, m));
+scene.add(lustre);
 
 // Poteaux et cordons de velours devant l'estrade
-const poteaux = [];
-for (const x of [-1.2, 1.2]) for (let z = -18.6; z < -10; z += 2.2) poteaux.push(pose(x, 0, z));
-instances(new THREE.CylinderGeometry(0.035, 0.13, 0.95, 12), OR, poteaux, pose(0, 0.47, 0));
-instances(new THREE.SphereGeometry(0.06, 10, 8), OR, poteaux, pose(0, 0.97, 0));
-instances(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 8), brillant("#b0102a", 0.6), poteaux.filter((p, i) => i % 4 !== 3), pose(0, 0.85, 1.1, 0, Math.PI / 2));
+for (const x of [-1.2, 1.2]) for (let z = -19; z < -10; z += 2.2) {
+  ajouter(new THREE.CylinderGeometry(0.035, 0.13, 0.95, 12), OR, x, 0.47, z);
+  ajouter(new THREE.SphereGeometry(0.06, 10, 8), OR, x, 0.97, z);
+  if (z < -12) ajouter(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 8), VELOURS, x, 0.85, z + 1.1).rotation.x = Math.PI / 2;
+}
 
-// Lumières : peu nombreuses, l'ambiance vient des néons + bloom
-scene.add(new THREE.HemisphereLight("#8f6bff", "#2a0a24", 0.35));
-for (const [c, x, y, z, i] of [["#ff2bd6", -8, 3, -6, 22], ["#22f5ff", 8, 3, -6, 22], ["#ffcf7a", 0, 3.4, -18, 26], ["#ffcf7a", 0, 3.2, 2, 14]]) {
-  const l = new THREE.PointLight(c, i, 0, 2);
-  l.position.set(x, y, z);
+// Lumières : 3 seulement, l'ambiance vient des néons
+scene.add(new THREE.HemisphereLight("#8f6bff", "#2a0a24", 0.9));
+for (const [c, x, z, i] of [["#ff2bd6", -5, -6, 22], ["#22f5ff", 5, -6, 22], ["#ffcf7a", 0, -18.5, 26]]) {
+  const l = new THREE.PointLight(c, i, 0, 1.6);
+  l.position.set(x, 3.2, z);
   scene.add(l);
 }
 
@@ -366,7 +332,6 @@ addEventListener("mousemove", (e) => {
 });
 addEventListener("keydown", (e) => {
   touches[e.code] = true;
-  if (e.code === "KeyF") bloom.enabled = !bloom.enabled;
   if (mode === "salle" && e.code === "KeyE" && cible && document.pointerLockElement) utiliser(cible);
   if (mode !== "jeu") return;
   if (e.code === "Escape") return sortirDuJeu();
@@ -411,7 +376,7 @@ function sortirDuJeu() {
   envoyer("/api/pause", { pause: true });
   mode = "transition";
   transition = { de: camera.position.clone(), deQ: camera.quaternion.clone(), vers: retour.position, versQ: retour.quaternion, t: 0, puis: "salle" };
-  $("aide").textContent = "ZQSD BOUGER · SOURIS REGARDER · E JOUER · F EFFETS";
+  $("aide").textContent = "ZQSD BOUGER · SOURIS REGARDER · E JOUER";
 }
 function montrerInfo(texte) {
   $("info").textContent = texte;
@@ -429,9 +394,9 @@ function deplacer(dt) {
     const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), min = o.r + 0.3;
     if (d < min) { p.x = o.x + (dx / d) * min; p.z = o.z + (dz / d) * min; }
   }
-  p.x = Math.max(-LX + 1.4, Math.min(LX - 1.4, p.x));
+  p.x = Math.max(-LX + 0.6, Math.min(LX - 0.6, p.x));
   p.z = Math.max(Z1 + 0.6, Math.min(Z0 - 0.6, p.z));
-  if (Math.abs(p.x) < 3.8 && p.z < -18.9) p.z = -18.9;
+  if (Math.abs(p.x) < 3.5 && p.z < -19.3) p.z = -19.3;
   pas += avant || cote ? dt * 9 : 0;
   p.y = 1.65 + Math.sin(pas) * 0.025;
   camera.rotation.set(tangage, lacet, 0);
@@ -453,12 +418,12 @@ function viser() {
 if (location.hash === "#jeu") utiliser(bornes.at(-1));
 
 // ---------- Boucle ----------
-const couleur = new THREE.Color(), CHAUD = HDR("#ffcf7a", 4), TIEDE = HDR("#ffcf7a", 0.25), GYROS = ["#ff2030", "#ffc83d", "#22f5ff", "#ff2bd6"];
 let avant = performance.now();
 rendu.setAnimationLoop((maintenant) => {
   const dt = Math.min(0.05, (maintenant - avant) / 1000);
   avant = maintenant;
   minuterieInfo -= dt;
+  temps.value = maintenant / 1000;
   if (mode === "salle") { deplacer(dt); viser(); }
   if (mode === "transition") {
     transition.t = Math.min(1, transition.t + dt / 0.7);
@@ -470,17 +435,7 @@ rendu.setAnimationLoop((maintenant) => {
       if (mode === "salle") $("accueil").classList.remove("cache");
     }
   }
-  bloom.strength += ((mode === "jeu" ? 0.15 : 0.7) - bloom.strength) * 0.1;
-  for (const f of faisceaux) f.visible = mode === "salle";
-  const tic = Math.floor(maintenant / 120);
-  for (let i = 0; i < ampoules.count; i++) ampoules.setColorAt(i, (i + tic) % 3 ? CHAUD : TIEDE);
-  ampoules.instanceColor.needsUpdate = true;
-  for (let i = 0; i < gyros.count; i++) gyros.setColorAt(i, couleur.set(GYROS[i % 4]).multiplyScalar((i + tic) % 6 < 2 ? 4 : 0.4));
-  gyros.instanceColor.needsUpdate = true;
-  rouleaux.offset.y = (maintenant / 900) % 1;
-  for (const r of roues) r.rotation.y += dt * 1.5;
-  boule.rotation.y += dt * 0.5;
   ecranJeu.dessiner(maintenant);
   texJeu.needsUpdate = true;
-  composeur.render();
+  rendu.render(scene, camera);
 });
