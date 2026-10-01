@@ -15,6 +15,8 @@ sys.path.insert(0, str(RACINE / "projets" / "projet_10_space_invaders"))
 from space_invaders.partie import Partie
 
 DOSSIER_SALLE = RACINE / "salle"
+DOSSIER_JEU = RACINE / "projets" / "projet_10_space_invaders" / "space_invaders"
+FICHIERS_JEU = ["__init__.py", "niveaux.py", "entites.py", "flotte.py", "partie.py"]
 FICHIER_PROJETS = RACINE / "projets" / "projets.json"
 PORT = int(os.environ.get("PORT_SALLE", "8000"))
 TICK = 1 / 60
@@ -95,9 +97,19 @@ class Gestionnaire(SimpleHTTPRequestHandler):
         taille = int(self.headers.get("Content-Length", 0))
         return json.loads(self.rfile.read(taille) or b"{}")
 
+    def envoyer_fichier_jeu(self, nom):
+        corps = (DOSSIER_JEU / nom).read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(corps)))
+        self.end_headers()
+        self.wfile.write(corps)
+
     def do_GET(self):
-        if self.path == "/api/projets":
+        if self.path == "/projets.json":
             self.repondre(lire_projets())
+        elif self.path.startswith("/space_invaders/") and self.path[16:] in FICHIERS_JEU:
+            self.envoyer_fichier_jeu(self.path[16:])
         elif self.path == "/api/flux":
             self.diffuser()
         else:

@@ -21,3 +21,6 @@ Thumbs.db
 *.zip
 PROMPT_SPACE_INVADERS.md
 ressources_open_source.md
+
+# Dossier genere pour Vercel
+public/

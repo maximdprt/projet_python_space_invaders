@@ -30,6 +30,13 @@ ou directement `http://localhost:8000/#simple` (choisi automatiquement si le nav
 | P | | pause |
 | Échap | | revenir dans la salle |
 
+## En ligne (Vercel)
+
+Le même jeu tourne aussi sur un site statique : le navigateur charge **MicroPython** (~560 Ko) qui exécute
+les 4 fichiers Python du jeu, sans serveur. La configuration est dans `vercel.json` (aucune installation,
+le dossier `public/` est assemblé à partir de `salle/`, des 4 fichiers du jeu et de `projets/projets.json`).
+Sur le site, les bornes 1 à 9 se lancent seulement en local (`python main.py`), car un site ne peut pas ouvrir de terminal.
+
 ## Le jeu en Python pur : 4 fichiers
 
 C'est le **10e jeu** de la salle : toute sa logique est dans `projets/projet_10_space_invaders/space_invaders/`, écrite **uniquement avec les notions du cours**

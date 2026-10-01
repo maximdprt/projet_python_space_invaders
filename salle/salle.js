@@ -7,7 +7,8 @@ import { creerJeu } from "./jeu.js";
 
 const $ = (id) => document.getElementById(id);
 await document.fonts.load("16px Pixel");
-const projets = await (await fetch("/api/projets")).json();
+import { EN_LOCAL } from "./moteurs.js";
+const projets = await (await fetch("projets.json")).json();
 
 // ---------- Moteur ----------
 const QUALITE_MAX = Math.min(devicePixelRatio, 1);
@@ -352,6 +353,7 @@ addEventListener("keyup", (e) => (touches[e.code] = false));
 
 function utiliser(borne) {
   if (borne.p.numero !== 10) {
+    if (!EN_LOCAL) return montrerInfo("À LANCER EN LOCAL (python main.py)");
     fetch(`/api/lancer/${borne.p.numero}`, { method: "POST" }).then((r) => r.json())
       .then((r) => montrerInfo(r.ok ? "LANCÉ DANS UN TERMINAL" : "BIENTÔT DISPONIBLE"));
     return;
