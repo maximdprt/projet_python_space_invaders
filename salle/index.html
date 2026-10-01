@@ -1,13 +1,39 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eugenia Arcade</title>
-    <link rel="stylesheet" href="./src/ui/style.css" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="./src/main.js"></script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eugenia Arcade</title>
+<script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
+<style>
+  @font-face { font-family: "Pixel"; src: url("lib/police.woff2") format("woff2"); }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07020f; color: #fff; font: 12px "Pixel", monospace; }
+  canvas { display: block; }
+  #accueil { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 28px;
+    background: radial-gradient(#2a0838cc, #07020fee); cursor: pointer; }
+  #accueil h1 { margin: 0; font-size: 42px; color: #ff2bd6; text-shadow: 0 0 12px #ff2bd6, 0 0 40px #ff2bd6; }
+  #accueil h1 span { color: #22f5ff; text-shadow: 0 0 12px #22f5ff, 0 0 40px #22f5ff; }
+  #accueil p { margin: 0; line-height: 2.2; color: #c9b8ff; }
+  #accueil b { color: #ffc83d; animation: clignote 1s steps(2) infinite; }
+  @keyframes clignote { 50% { opacity: 0; } }
+  #viseur { position: fixed; left: 50%; top: 50%; width: 10px; height: 10px; margin: -7px; border: 2px solid #22f5ff;
+    border-radius: 50%; box-shadow: 0 0 8px #22f5ff; transition: .15s; }
+  #viseur.actif { width: 22px; height: 22px; margin: -13px; border-color: #ff2bd6; box-shadow: 0 0 12px #ff2bd6; }
+  #info { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); padding: 10px 16px; background: #0009;
+    border: 1px solid #ff2bd6; border-radius: 6px; white-space: nowrap; }
+  #aide { position: fixed; left: 16px; bottom: 14px; color: #8f7fbf; }
+  .cache { display: none !important; }
+</style>
+</head>
+<body>
+<div id="accueil">
+  <h1>EUGENIA <span>ARCADE</span></h1>
+  <p>ZQSD : se déplacer · SOURIS : regarder · MAJ : courir<br>E : jouer à une borne · ÉCHAP : quitter la borne</p>
+  <b>CLIQUE POUR ENTRER</b>
+</div>
+<div id="viseur" class="cache"></div>
+<div id="info" class="cache"></div>
+<div id="aide">ZQSD BOUGER · SOURIS REGARDER · E JOUER</div>
+<script type="module" src="salle.js"></script>
+</body>
 </html>

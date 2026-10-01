@@ -7,7 +7,8 @@
     "couleur": "#1f7a4d",
     "type": "terminal",
     "dossier": "projets/projet_01_pendu",
-    "disponible": false
+    "disponible": false,
+    "icone": "🪢"
   },
   {
     "numero": 2,
@@ -17,7 +18,8 @@
     "couleur": "#1f7a4d",
     "type": "terminal",
     "dossier": "projets/projet_02_calculatrice",
-    "disponible": false
+    "disponible": false,
+    "icone": "🧮"
   },
   {
     "numero": 3,
@@ -27,7 +29,8 @@
     "couleur": "#d9940f",
     "type": "terminal",
     "dossier": "projets/projet_03_morpion",
-    "disponible": false
+    "disponible": false,
+    "icone": "⭕"
   },
   {
     "numero": 4,
@@ -37,7 +40,8 @@
     "couleur": "#d9940f",
     "type": "terminal",
     "dossier": "projets/projet_04_aventure",
-    "disponible": false
+    "disponible": false,
+    "icone": "📖"
   },
   {
     "numero": 5,
@@ -47,7 +51,8 @@
     "couleur": "#d9940f",
     "type": "terminal",
     "dossier": "projets/projet_05_blackjack",
-    "disponible": false
+    "disponible": false,
+    "icone": "🃏"
   },
   {
     "numero": 6,
@@ -57,7 +62,8 @@
     "couleur": "#d9940f",
     "type": "terminal",
     "dossier": "projets/projet_06_jeu_de_la_vie",
-    "disponible": false
+    "disponible": false,
+    "icone": "🧬"
   },
   {
     "numero": 7,
@@ -67,7 +73,8 @@
     "couleur": "#d61c6b",
     "type": "terminal",
     "dossier": "projets/projet_07_puissance_4",
-    "disponible": false
+    "disponible": false,
+    "icone": "🔴"
   },
   {
     "numero": 8,
@@ -77,7 +84,8 @@
     "couleur": "#d61c6b",
     "type": "terminal",
     "dossier": "projets/projet_08_bataille_navale",
-    "disponible": false
+    "disponible": false,
+    "icone": "🚢"
   },
   {
     "numero": 9,
@@ -87,7 +95,8 @@
     "couleur": "#d61c6b",
     "type": "terminal",
     "dossier": "projets/projet_09_snake",
-    "disponible": false
+    "disponible": false,
+    "icone": "🐍"
   },
   {
     "numero": 10,
@@ -97,6 +106,7 @@
     "couleur": "#d61c6b",
     "type": "integre",
     "dossier": "src/space_invaders",
-    "disponible": true
+    "disponible": true,
+    "icone": "👾"
   }
 ]

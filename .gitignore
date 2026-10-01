@@ -5,10 +5,6 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Node / build de la salle 3D
-node_modules/
-salle/dist/
-
 # Secrets / environnement
 .env
 
@@ -22,4 +18,5 @@ Thumbs.db
 *.pdf
 *.jpeg
 *.jpg
+*.zip
 PROMPT_SPACE_INVADERS.md

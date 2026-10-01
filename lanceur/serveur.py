@@ -3,29 +3,61 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent
-DOSSIER_SALLE = RACINE / "salle" / "dist"
+sys.path.insert(0, str(RACINE / "src"))
+
+from space_invaders.partie import Partie
+
+DOSSIER_SALLE = RACINE / "salle"
 FICHIER_PROJETS = RACINE / "projets" / "projets.json"
 PORT = int(os.environ.get("PORT_SALLE", "8000"))
-OUVRIR_NAVIGATEUR = os.environ.get("SALLE_SANS_NAVIGATEUR", "") == ""
-ADRESSES_LOCALES = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+TICK = 1 / 60
 
-TYPES_MIME = {
-    ".js": "text/javascript",
-    ".mjs": "text/javascript",
-    ".wasm": "application/wasm",
-    ".json": "application/json",
-    ".css": "text/css",
-    ".zip": "application/zip",
-    ".html": "text/html",
-    ".woff": "font/woff",
-    ".woff2": "font/woff2",
-}
+
+class Moteur:
+    """Fait tourner la Partie (Python pur) 60 fois par seconde ; le navigateur ne fait qu'afficher."""
+
+    def __init__(self):
+        self.partie = Partie()
+        self.touches = {"gauche": False, "droite": False, "tir": False}
+        self.tir_en_attente = False
+        self.image = "{}"
+        self.numero = 0
+        self.signal = threading.Condition()
+
+    def boucle(self):
+        prochain = time.perf_counter()
+        while True:
+            with self.signal:
+                tir = self.touches["tir"] or self.tir_en_attente
+                self.tir_en_attente = False
+                self.partie.mettre_a_jour(self.touches["gauche"], self.touches["droite"], tir)
+                self.image = json.dumps(self.partie.etat(), separators=(",", ":"))
+                self.numero += 1
+                self.signal.notify_all()
+            prochain += TICK
+            time.sleep(max(0, prochain - time.perf_counter()))
+
+    def appuyer(self, touches):
+        with self.signal:
+            if touches.get("tir") and not self.touches["tir"]:
+                self.tir_en_attente = True
+            for nom in self.touches:
+                self.touches[nom] = bool(touches.get(nom))
+
+    def pause(self, voulue):
+        with self.signal:
+            if voulue != (self.partie.statut == "pause"):
+                self.partie.basculer_pause()
+
+
+moteur = Moteur()
 
 
 def lire_projets():
@@ -35,81 +67,76 @@ def lire_projets():
 
 def lancer_projet(numero):
     projet = next((p for p in lire_projets() if p["numero"] == numero), None)
-    if projet is None:
-        return False, f"Projet {numero} inconnu"
-    if projet.get("type") != "terminal":
-        return False, "Ce projet tourne directement dans la borne"
-    if not projet.get("disponible"):
-        return False, f"{projet['nom']} : bientôt disponible"
-    dossier = RACINE / projet["dossier"]
-    if not (dossier / "main.py").exists():
-        return False, f"main.py introuvable dans {projet['dossier']}"
-    options = {}
-    if os.name == "nt":
-        options["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-    subprocess.Popen([sys.executable, "main.py"], cwd=dossier, **options)
-    return True, ""
+    if projet is None or projet["type"] != "terminal" or not projet["disponible"]:
+        return False
+    options = {"creationflags": subprocess.CREATE_NEW_CONSOLE} if os.name == "nt" else {}
+    subprocess.Popen([sys.executable, "main.py"], cwd=RACINE / projet["dossier"], **options)
+    return True
 
 
-class GestionnaireSalle(SimpleHTTPRequestHandler):
-    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, **TYPES_MIME}
+class Gestionnaire(SimpleHTTPRequestHandler):
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
+                      ".js": "text/javascript", ".woff2": "font/woff2"}
 
-    def envoyer_json(self, code, donnees):
+    def repondre(self, donnees):
         corps = json.dumps(donnees, ensure_ascii=False).encode("utf-8")
-        self.send_response(code)
+        self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(corps)))
         self.end_headers()
         self.wfile.write(corps)
 
-    def depuis_cette_machine(self):
-        return self.client_address[0] in ADRESSES_LOCALES
+    def lire_corps(self):
+        taille = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(taille) or b"{}")
 
     def do_GET(self):
-        chemin = self.path.split("?")[0]
-        if chemin == "/api/projets":
-            self.envoyer_json(200, lire_projets())
-            return
-        super().do_GET()
+        if self.path == "/api/projets":
+            self.repondre(lire_projets())
+        elif self.path == "/api/flux":
+            self.diffuser()
+        else:
+            super().do_GET()
 
     def do_POST(self):
-        chemin = self.path.split("?")[0]
-        if not chemin.startswith("/api/lancer/"):
-            self.envoyer_json(404, {"ok": False, "message": "Route inconnue"})
-            return
-        if not self.depuis_cette_machine():
-            self.envoyer_json(403, {"ok": False, "message": "Lancement autorisé seulement en local"})
-            return
-        numero = chemin.rsplit("/", 1)[-1]
-        if not numero.isdigit():
-            self.envoyer_json(400, {"ok": False, "message": "Numéro invalide"})
-            return
-        ok, message = lancer_projet(int(numero))
-        self.envoyer_json(200, {"ok": ok, "message": message})
+        if self.path == "/api/touches":
+            moteur.appuyer(self.lire_corps())
+            self.repondre({"ok": True})
+        elif self.path == "/api/pause":
+            moteur.pause(self.lire_corps().get("pause", True))
+            self.repondre({"ok": True})
+        elif self.path.startswith("/api/lancer/") and self.path[12:].isdigit():
+            self.repondre({"ok": lancer_projet(int(self.path[12:]))})
+        else:
+            self.send_error(404)
 
-    def end_headers(self):
+    def diffuser(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
-        super().end_headers()
+        self.end_headers()
+        vu = -1
+        try:
+            while True:
+                with moteur.signal:
+                    moteur.signal.wait_for(lambda deja_vu=vu: moteur.numero != deja_vu, timeout=1)
+                    vu, image = moteur.numero, moteur.image
+                self.wfile.write(f"data: {image}\n\n".encode())
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def log_message(self, format, *args):
-        if self.path.startswith("/api/"):
-            super().log_message(format, *args)
+        pass
 
 
 def demarrer_salle():
-    if not (DOSSIER_SALLE / "index.html").exists():
-        print("La salle n'est pas encore construite.")
-        print("Lance d'abord : cd salle ; npm install ; npm run build")
-        return
-    gestionnaire = partial(GestionnaireSalle, directory=str(DOSSIER_SALLE))
-    serveur = ThreadingHTTPServer(("127.0.0.1", PORT), gestionnaire)
+    threading.Thread(target=moteur.boucle, daemon=True).start()
+    serveur = ThreadingHTTPServer(("127.0.0.1", PORT), partial(Gestionnaire, directory=str(DOSSIER_SALLE)))
     adresse = f"http://localhost:{PORT}"
-    print(f"Salle d'arcade ouverte sur {adresse} — Ctrl+C pour quitter")
-    if OUVRIR_NAVIGATEUR:
-        threading.Timer(0.6, lambda: webbrowser.open(adresse)).start()
+    print(f"Salle d'arcade ouverte sur {adresse} - Ctrl+C pour quitter")
+    if not os.environ.get("SALLE_SANS_NAVIGATEUR"):
+        webbrowser.open(adresse)
     try:
         serveur.serve_forever()
     except KeyboardInterrupt:
-        print("\nSalle fermée. À bientôt !")
-    finally:
-        serveur.server_close()
+        print("Salle fermée.")
