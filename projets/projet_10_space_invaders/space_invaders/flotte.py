@@ -1,18 +1,19 @@
 import random
 
-from space_invaders.niveaux import LARGEUR
+from space_invaders.niveaux import LARGEUR, parametres_vague
 from space_invaders.entites import Ennemi
 
 SORTES = ["poulpe", "crabe", "crabe", "meduse", "meduse"]
 
 
 class Flotte:
-    def __init__(self, palier, vague):
-        self.vitesse = palier["vitesse"] + 0.1 * vague
-        self.proba_tir = palier["proba_tir"]
+    def __init__(self, vague):
+        parametres = parametres_vague(vague)
+        self.vitesse = parametres["vitesse"] + 0.1 * vague
+        self.proba_tir = parametres["proba_tir"]
         self.direction = 1
         self.ennemis = []
-        for ligne in range(palier["lignes"]):
+        for ligne in range(parametres["lignes"]):
             for colonne in range(9):
                 self.ennemis.append(Ennemi(142 + colonne * 60, 70 + ligne * 45, SORTES[ligne]))
 
@@ -25,7 +26,7 @@ class Flotte:
         if au_bord:
             self.direction = -self.direction
             for ennemi in self.ennemis:
-                ennemi.deplacer(0, 12)
+                ennemi.deplacer(0, 14)
 
     def riposter(self):
         if len(self.ennemis) > 0 and random.random() < self.proba_tir:

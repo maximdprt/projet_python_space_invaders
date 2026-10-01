@@ -8,7 +8,7 @@ def main():
         partie.mettre_a_jour(False, numero % 40 < 20, numero % 7 == 0)
     etat = partie.etat()
     print("Projet 10 - Space Invaders (Corentin & Maxim)")
-    print(f"Score : {etat['score']} - Vies : {etat['vies']} - Palier : {etat['palier']} - Statut : {etat['statut']}")
+    print(f"Score : {etat['score']} - Vies : {etat['vies']} - Forme : {etat['forme']}/5 - Statut : {etat['statut']}")
     print("Pour jouer : lance python main.py a la racine et va a la borne 10.")
 
 

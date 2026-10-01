@@ -1,4 +1,4 @@
-from space_invaders.niveaux import LARGEUR, HAUTEUR, VIES_MAX, CANONS, POINTS
+from space_invaders.niveaux import LARGEUR, HAUTEUR, VIES_MAX, CANONS, POINTS, FORMES
 
 
 class Entite:
@@ -27,6 +27,7 @@ class Vaisseau(Entite):
     def __init__(self):
         super().__init__(374, 540, 52, 30, "chasseur")
         self.vies = 3
+        self.forme = 0
         self.recharge = 0
         self.invincible = 0
 
@@ -50,21 +51,27 @@ class Vaisseau(Entite):
     def tirer(self):
         missiles = []
         if self.recharge == 0:
-            self.recharge = 15
+            self.recharge = 18
             for decalage in CANONS[self.sorte]:
                 missiles.append(Missile(self.x + 23 + decalage, self.y, -10))
         return missiles
 
+    def changer_forme(self, numero):
+        self.forme = numero
+        self.sorte = FORMES[numero]
+
+    def evoluer(self):
+        if self.forme < len(FORMES) - 1:
+            self.changer_forme(self.forme + 1)
+        elif self.vies < VIES_MAX:
+            self.vies += 1
+
     def perdre_vie(self):
         if self.invincible == 0:
             self.vies -= 1
-            self.invincible = 120
-
-    def evoluer(self, palier):
-        self.sorte = palier["vaisseau"]
-        self.invincible = 120
-        if self.vies < VIES_MAX:
-            self.vies += 1
+            self.invincible = 90
+            if self.forme > 0:
+                self.changer_forme(self.forme - 1)
 
     def mettre_a_jour(self):
         if self.recharge > 0:
@@ -89,10 +96,18 @@ class Missile(Entite):
             self.vivant = False
 
 
+class Bonus(Missile):
+    def __init__(self, x, y):
+        super().__init__(x, y, 2.5)
+        self.largeur = 22
+        self.hauteur = 22
+        self.sorte = "bonus"
+
+
 class Ennemi(Entite):
     def __init__(self, x, y, sorte):
         super().__init__(x, y, 36, 26, sorte)
         self.points = POINTS[sorte]
 
     def tirer(self):
-        return Missile(self.x + 15, self.y + 26, 4)
+        return Missile(self.x + 15, self.y + 26, 5.5)

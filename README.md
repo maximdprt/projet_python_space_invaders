@@ -41,21 +41,22 @@ niveaux.py  ←  entites.py  ←  flotte.py  ←  partie.py
 
 | Fichier | Rôle | Notions du cours montrées |
 |---|---|---|
-| `niveaux.py` | constantes, canons de chaque vaisseau, les 5 paliers | dictionnaires, liste de dictionnaires, fonction + `return` |
-| `entites.py` | `Entite` → `Vaisseau`, `Missile`, `Ennemi` | classes, héritage, `super()`, `@property` + setter + `raise ValueError` |
+| `niveaux.py` | constantes, les 5 formes du vaisseau et leurs canons, les vagues | dictionnaires, liste de dictionnaires, fonction + `return` |
+| `entites.py` | `Entite` → `Vaisseau`, `Missile` → `Bonus`, `Ennemi` | classes, héritage, `super()`, `@property` + setter + `raise ValueError` |
 | `flotte.py` | la grille d'ennemis : avance, rebondit, descend, riposte | composition, boucles imbriquées, `random` |
-| `partie.py` | assemble tout : tirs, collisions, score, vies, vagues, paliers | composition, `from ... import` |
+| `partie.py` | assemble tout : tirs, collisions, bonus, score, vies, vagues | composition, `from ... import`, `random` |
 | `../main.py` | lance une partie de démonstration sans affichage | `import`, `if __name__ == "__main__"` |
 
 Le moteur tourne aussi sans aucun affichage : `cd projets/projet_10_space_invaders` puis `python main.py`.
 
 ### Règles
 
-- 3 vies, score et meilleur score affichés.
-- Quand la flotte est détruite, une nouvelle vague arrive, un peu plus rapide.
-- **Paliers** selon le nombre d'ennemis tués (0, 20, 50, 100, 170) : le vaisseau se transforme
-  (chasseur → intercepteur → faucon → croiseur → dreadnought) et tire 1, 2, 3, 4 puis 5 missiles à la fois
-  et il gagne une vie ; les vagues suivantes ont plus d'ennemis, plus rapides, qui tirent plus souvent.
+- 3 vies, score et record affichés.
+- Chaque ennemi tué a 15 % de chances de lâcher un **bonus** qui tombe. L'attraper fait passer le vaisseau
+  à la forme suivante (chasseur → intercepteur → faucon → croiseur → dreadnought), qui tire 1, 2, 3, 4 puis 5 missiles.
+  À la forme maximale, un bonus donne une vie.
+- Être touché fait perdre une vie **et** une forme.
+- Chaque vague est plus dure : plus d'ennemis, plus rapides, qui tirent plus souvent.
 - Défaite à 0 vie ou si les envahisseurs arrivent en bas.
 
 ## Architecture
@@ -87,3 +88,7 @@ python outils/verifier_notions.py
 ```
 
 `outils/verifier_notions.py` vérifie que les 4 fichiers n'utilisent aucune notion hors cours.
+
+## Crédits
+
+Personnages animés de la salle : [Kenney Mini Arcade](https://kenney.nl/assets/mini-arcade) (CC0, licence dans `salle/modeles/`).

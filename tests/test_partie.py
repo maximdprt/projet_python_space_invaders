@@ -1,8 +1,8 @@
 import random
 
 from space_invaders.partie import Partie
-from space_invaders.entites import Missile
-from space_invaders.niveaux import PALIERS
+from space_invaders.entites import Missile, Bonus
+from space_invaders.niveaux import FORMES
 
 
 def partie_lancee():
@@ -26,12 +26,13 @@ def test_un_tir_detruit_un_ennemi():
     assert len(partie.explosions) == 1
 
 
-def test_passage_de_palier():
+def test_ramasser_un_bonus_change_la_forme():
     partie = partie_lancee()
-    partie.ennemis_tues = PALIERS[1]["seuil"]
-    partie.verifier_palier()
-    assert partie.vaisseau.sorte == PALIERS[1]["vaisseau"]
-    assert partie.vaisseau.vies == 4
+    vaisseau = partie.vaisseau
+    partie.bonus = [Bonus(vaisseau.x + 10, vaisseau.y)]
+    partie.ramasser_bonus()
+    assert vaisseau.sorte == FORMES[1]
+    assert not partie.bonus[0].vivant
 
 
 def test_nouvelle_vague_quand_la_flotte_est_vide():
@@ -55,4 +56,4 @@ def test_une_partie_entiere_sans_erreur():
     for numero in range(5000):
         partie.mettre_a_jour(numero % 90 < 45, numero % 90 >= 45, True)
     assert partie.statut in ["en_cours", "perdu"]
-    assert "vaisseau" in partie.etat()
+    assert "bonus" in partie.etat()

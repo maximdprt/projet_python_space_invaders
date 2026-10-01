@@ -2,10 +2,10 @@
 const L = 800, H = 600;
 
 const COULEURS = {
-  meduse: "#22f5ff", crabe: "#ff2bd6", poulpe: "#7dff3a", tir: "#22f5ff", plasma: "#ff2bd6",
+  meduse: "#22f5ff", crabe: "#ff2bd6", poulpe: "#7dff3a", tir: "#22f5ff", plasma: "#ff2bd6", bonus: "#ffc83d",
   chasseur: "#22f5ff", intercepteur: "#3aa8ff", faucon: "#a85cff", croiseur: "#ffc83d", dreadnought: "#ff2bd6",
 };
-const PALETTE = { W: "#eef8ff", C: "#22f5ff", B: "#3a7bff", V: "#a85cff", G: "#ffc83d", D: "#5a5f7a", R: "#ff2bd6" };
+const PALETTE = { O: "#fff6c8", W: "#eef8ff", C: "#22f5ff", B: "#3a7bff", V: "#a85cff", G: "#ffc83d", D: "#5a5f7a", R: "#ff2bd6" };
 const ECHELLES = { chasseur: 4, intercepteur: 3.4 };
 
 // Pixel art : "/" sépare les lignes, "." = vide, X = couleur de l'entité.
@@ -16,6 +16,8 @@ const SPRITES = {
     "..X.....X../X..X...X..X/X.XXXXXXX.X/XXX.XXX.XXX/XXXXXXXXXXX/.XXXXXXXXX./..X.....X../.X.......X."],
   meduse: ["....XXXX..../.XXXXXXXXXX./XXXXXXXXXXXX/XXX..XX..XXX/XXXXXXXXXXXX/...XX..XX.../..XX.XX.XX../XX........XX",
     "....XXXX..../.XXXXXXXXXX./XXXXXXXXXXXX/XXX..XX..XXX/XXXXXXXXXXXX/..XXX..XXX../.XX..XX..XX./..XX....XX.."],
+  bonus: ["..XXXX../.XXOOXX./XXXOOXXX/XOOOOOOX/XOOOOOOX/XXXOOXXX/.XXOOXX./..XXXX..",
+    "......../..XXXX../.XXOOXX./XXOOOOXX/XXOOOOXX/.XXOOXX./..XXXX../........"],
   chasseur: ["......W....../.....WCW...../.....WCW...../....WWWWW..../.C..WWBWW..C./.W.WWWWWWW.W./WWWWWWWWWWWWW/WWWWW...WWWWW/.CC.......CC."],
   intercepteur: ["........W......../.......WCW......./.......WCW......./......WWWWW....../.....WWBBBWW...../W...WWWWWWWWW...W/WW.WWWWWWWWWWW.WW/WWWWWCWWWWWCWWWWW/.WWW..WW.WW..WWW./.C.....C.C.....C."],
   faucon: [".........W........./........WVW......../........VVV......../.......WVVVW......./......WWWWWWW....../..C..WWWBBBWWW..C../..W.WWWWWWWWWWW.W../.WWWWWWWWWWWWWWWWW./WWWCWWWWWWWWWWWCWWW/WWW.WWWW...WWWW.WWW/.W...WW.....WW...W."],
@@ -91,7 +93,8 @@ export function creerJeu() {
     }
     if (!avant || etat.statut !== "en_cours" || avant.statut !== "en_cours") return;
     if (etat.vies < avant.vies) secousse = 14;
-    if (etat.palier !== avant.palier) banniere = { t: 150, texte: `PALIER ${etat.palier}`, sorte: etat.vaisseau.sorte };
+    if (etat.forme > avant.forme) banniere = { t: 120, texte: "NOUVELLE FORME", sorte: etat.vaisseau.sorte };
+    else if (etat.forme < avant.forme) banniere = { t: 90, texte: "FORME PERDUE", sorte: etat.vaisseau.sorte };
     else if (etat.vague !== avant.vague) banniere = { t: 90, texte: `VAGUE ${etat.vague}`, sorte: etat.vaisseau.sorte };
     if (etat.score > record) localStorage.setItem("record", (record = etat.score));
   }
@@ -100,14 +103,14 @@ export function creerJeu() {
     texte(`SCORE ${etat.score}`, 16, 30, 14, "#fff", "left");
     texte(`RECORD ${record}`, L / 2, 30, 14, "#ffc83d");
     texte(`VAGUE ${etat.vague}`, L - 16, 30, 14, "#22f5ff", "right");
-    texte(`${etat.palier} - ${etat.ennemis_tues} TUES`, 16, 56, 10, COULEURS[etat.vaisseau.sorte], "left");
+    texte(`FORME ${etat.forme}/5 ${etat.vaisseau.sorte.toUpperCase()}`, 16, 56, 10, COULEURS[etat.vaisseau.sorte], "left");
     const icone = sprite(etat.vaisseau.sorte, 0);
     for (let i = 0; i < etat.vies; i++) centrer(ctx, icone, 30 + i * 40, H - 14, 0.4);
     ctx.fillStyle = "#ff2bd6";
     ctx.fillRect(0, 575, L, 2);
     if (banniere && banniere.t-- > 0) {
       texte(banniere.texte, L / 2, 260, 26, COULEURS[banniere.sorte]);
-      if (banniere.texte.startsWith("PALIER")) centrer(ctx, sprite(banniere.sorte, 0), L / 2, 330, 1.6);
+      if (banniere.texte.startsWith("NOUVELLE")) centrer(ctx, sprite(banniere.sorte, 0), L / 2, 330, 1.6);
     }
   }
 
@@ -118,9 +121,9 @@ export function creerJeu() {
     const perdu = etat.statut === "perdu";
     texte(perdu ? "GAME OVER" : "SPACE INVADERS", L / 2, 160, perdu ? 40 : 36, perdu ? "#ff3b3b" : "#ff2bd6");
     if (perdu) texte(`SCORE ${etat.score}   RECORD ${record}`, L / 2, 220, 16, "#ffc83d");
-    ["poulpe", "crabe", "meduse"].forEach((sorte, i) => {
-      centrer(ctx, sprite(sorte, Math.floor(temps / 500)), 330, 290 + i * 50);
-      texte(`= ${[30, 20, 10][i]} PTS`, 370, 298 + i * 50, 14, COULEURS[sorte], "left");
+    ["poulpe", "crabe", "meduse", "bonus"].forEach((sorte, i) => {
+      centrer(ctx, sprite(sorte, Math.floor(temps / 500)), 300, 280 + i * 46);
+      texte(sorte === "bonus" ? "= NOUVELLE FORME" : `= ${[30, 20, 10][i]} PTS`, 340, 288 + i * 46, 14, COULEURS[sorte], "left");
     });
     if (Math.floor(temps / 500) % 2) texte(perdu ? "ESPACE POUR REJOUER" : "APPUIE SUR ESPACE", L / 2, 500, 18);
   }
@@ -137,6 +140,7 @@ export function creerJeu() {
     if (secousse > 0) ctx.translate((Math.random() - 0.5) * secousse, (Math.random() - 0.5) * secousse--);
     const image = Math.floor(temps / 400);
     for (const e of etat.ennemis) centrer(ctx, sprite(e.sorte, image), e.x + e.largeur / 2, e.y + e.hauteur / 2);
+    for (const b of etat.bonus) centrer(ctx, sprite("bonus", image), b.x + b.largeur / 2, b.y + b.hauteur / 2);
     ctx.globalCompositeOperation = "lighter";
     for (const m of etat.missiles) {
       ctx.fillStyle = COULEURS[m.sorte] + "55";

@@ -1,7 +1,7 @@
 import pytest
 
-from space_invaders.entites import Entite, Vaisseau, Ennemi, Missile
-from space_invaders.niveaux import PALIERS, VIES_MAX
+from space_invaders.entites import Entite, Vaisseau, Ennemi, Missile, Bonus
+from space_invaders.niveaux import FORMES, VIES_MAX
 
 
 def test_collision():
@@ -30,11 +30,28 @@ def test_recharge_entre_deux_tirs():
     assert vaisseau.tirer() == []
 
 
-def test_evolution_du_vaisseau():
+def test_un_bonus_fait_evoluer_le_vaisseau():
     vaisseau = Vaisseau()
-    vaisseau.evoluer(PALIERS[4])
-    assert len(vaisseau.tirer()) == 5
+    vaisseau.evoluer()
+    assert vaisseau.sorte == FORMES[1]
+    vaisseau.recharge = 0
+    assert len(vaisseau.tirer()) == 2
+
+
+def test_a_la_forme_maximale_un_bonus_donne_une_vie():
+    vaisseau = Vaisseau()
+    for numero in range(len(FORMES)):
+        vaisseau.evoluer()
+    assert vaisseau.sorte == FORMES[-1]
     assert vaisseau.vies == 4
+
+
+def test_un_coup_fait_perdre_une_vie_et_une_forme():
+    vaisseau = Vaisseau()
+    vaisseau.evoluer()
+    vaisseau.perdre_vie()
+    assert vaisseau.vies == 2
+    assert vaisseau.sorte == FORMES[0]
 
 
 def test_invincible_apres_un_coup():
@@ -46,5 +63,6 @@ def test_invincible_apres_un_coup():
 
 def test_heritage():
     assert isinstance(Vaisseau(), Entite)
-    assert isinstance(Ennemi(0, 0, "crabe"), Entite)
+    assert isinstance(Bonus(0, 0), Missile)
+    assert Bonus(0, 0).sorte == "bonus"
     assert Missile(0, 0, 4).sorte == "plasma"

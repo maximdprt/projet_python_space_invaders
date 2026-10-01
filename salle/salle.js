@@ -2,6 +2,8 @@
 // Optimisation : pas de post-traitement, matériaux simples, et toutes les animations de lumière
 // sont calculées par la carte graphique (un seul shader, une seule valeur "temps" envoyée par image).
 import * as THREE from "three";
+import { GLTFLoader } from "./lib/loaders/GLTFLoader.js";
+import { clone } from "./lib/utils/SkeletonUtils.js";
 import { creerJeu } from "./jeu.js";
 
 const $ = (id) => document.getElementById(id);
@@ -302,6 +304,32 @@ for (const x of [-1.2, 1.2]) for (let z = -19; z < -10; z += 2.2) {
   if (z < -12) ajouter(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 8), VELOURS, x, 0.85, z + 1.1).rotation.x = Math.PI / 2;
 }
 
+// ---------- Personnages animés (Kenney Mini Arcade, CC0) ----------
+// Animations toutes faites dans les modèles (environ 500 triangles par personnage, une texture de 8 Ko).
+const animateurs = [];
+function personnage(gltf, animation, x, z, ry) {
+  const modele = clone(gltf.scene);
+  modele.position.set(x, 0, z);
+  modele.rotation.y = ry;
+  modele.scale.setScalar(1.9);
+  scene.add(modele);
+  const animateur = new THREE.AnimationMixer(modele);
+  animateur.clipAction(THREE.AnimationClip.findByName(gltf.animations, animation)).play();
+  animateurs.push(animateur);
+  obstacles.push({ x, z, r: 0.35 });
+  return modele;
+}
+const chargeur = new GLTFLoader();
+const [employe, joueur] = await Promise.all([chargeur.loadAsync("modeles/character-employee.glb"), chargeur.loadAsync("modeles/character-gamer.glb")]);
+// Matériau simple (Lambert) à la place du matériau physique : même texture, bien moins de calculs.
+for (const gltf of [employe, joueur]) gltf.scene.traverse((o) => { if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ map: o.material.map }); });
+personnage(employe, "idle", 2.2, -18.6, -0.3);
+personnage(joueur, "interact-right", -3.25, -0.8, -Math.PI / 2);
+personnage(joueur, "interact-right", 3.25, -4.1, Math.PI / 2);
+const promeneur = personnage(employe, "walk", 2.2, 3, Math.PI);
+obstacles.pop();
+let sensPromeneur = -1;
+
 // Lumières : 3 seulement, l'ambiance vient des néons
 scene.add(new THREE.HemisphereLight("#8f6bff", "#2a0a24", 0.9));
 for (const [c, x, z, i] of [["#ff2bd6", -5, -6, 22], ["#22f5ff", 5, -6, 22], ["#ffcf7a", 0, -18.5, 26]]) {
@@ -413,6 +441,12 @@ rendu.setAnimationLoop((maintenant) => {
   }
   // Pendant la partie, la 3D est figée : seul le jeu 2D est dessiné.
   if (mode === "jeu") return jeu.dessiner(maintenant);
+  for (const a of animateurs) a.update(dt);
+  promeneur.position.z += sensPromeneur * 1.1 * dt;
+  if (promeneur.position.z < -15 || promeneur.position.z > 4.5) {
+    sensPromeneur = -sensPromeneur;
+    promeneur.rotation.y = sensPromeneur > 0 ? 0 : Math.PI;
+  }
   // Dans la salle, l'écran de la borne 10 n'est rafraîchi qu'environ 12 fois par seconde.
   if (maintenant - dernierEcran > 80) {
     dernierEcran = maintenant;
