@@ -33,8 +33,21 @@
   #tactile button:active { background: #22f5ff33; }
   #tactile .tir { border-color: #ff2bd6; color: #ff2bd6; box-shadow: 0 0 12px #ff2bd688; width: 92px; height: 92px; font-size: 36px; }
   #tactile .groupe { display: flex; gap: 14px; }
-  body.tactile #tactile { display: flex; }
+  body.tactile.enjeu #tactile { display: flex; }
   body.tactile #aide { font-size: 10px; }
+  #joystick { position: fixed; left: 32px; bottom: 32px; width: 120px; height: 120px; border: 2px solid #22f5ff66;
+    border-radius: 50%; background: #0a031888; display: none; z-index: 9; pointer-events: none; }
+  #joystick::after { content: ""; position: absolute; left: var(--jx, 50%); top: var(--jy, 50%); width: 44px; height: 44px;
+    margin: -22px; border-radius: 50%; background: #22f5ffcc; box-shadow: 0 0 12px #22f5ff; }
+  #action { position: fixed; right: 32px; bottom: 32px; padding: 18px 24px; border: 2px solid #ff2bd6;
+    border-radius: 12px; background: #0a0318cc; color: #ff2bd6; font: 16px "Pixel", monospace;
+    box-shadow: 0 0 12px #ff2bd688; display: none; z-index: 9; touch-action: manipulation; user-select: none; }
+  body.tactile.ensalle #joystick { display: block; }
+  body.tactile.ensalle.cible #action { display: block; }
+  #sortir { position: fixed; right: 16px; top: 16px; padding: 10px 14px; border: 2px solid #ff2bd6;
+    border-radius: 8px; background: #0a0318cc; color: #ff2bd6; font: 12px "Pixel", monospace;
+    display: none; z-index: 11; touch-action: manipulation; user-select: none; }
+  body.tactile.enjeu #sortir { display: block; }
   .cache { display: none !important; }
 </style>
 </head>
@@ -48,6 +61,9 @@
 <div id="viseur" class="cache"></div>
 <div id="info" class="cache"></div>
 <div id="aide">ZQSD BOUGER · SOURIS REGARDER · E JOUER</div>
+<div id="joystick"></div>
+<button id="action">JOUER</button>
+<button id="sortir">SORTIR</button>
 <div id="tactile">
   <div class="groupe">
     <button id="btn-gauche" aria-label="Gauche">◀</button>
@@ -56,11 +72,11 @@
   <button id="btn-tir" class="tir" aria-label="Tirer">🔥</button>
 </div>
 <script type="module">
-  // Sans carte graphique compatible (ou sur mobile/demande), on charge seulement le jeu en 2D.
+  // Sans carte graphique compatible (ou sur demande), on charge seulement le jeu en 2D.
   const webgl = !!document.createElement("canvas").getContext("webgl2");
   const tactile = matchMedia("(hover: none) and (pointer: coarse)").matches;
   if (tactile) document.body.classList.add("tactile");
-  import(location.hash === "#simple" || !webgl || tactile ? "./simple.js" : "./salle.js");
+  import(location.hash === "#simple" || !webgl ? "./simple.js" : "./salle.js");
 </script>
 </body>
 </html>

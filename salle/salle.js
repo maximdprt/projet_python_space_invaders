@@ -222,6 +222,7 @@ const jeu = creerJeu();
 jeu.canvas.className = "plein cache";
 document.body.append(jeu.canvas);
 jeu.surQuitter(sortirDuJeu);
+$("sortir").addEventListener("click", () => { if (mode === "jeu") sortirDuJeu(); });
 const texJeu = new THREE.CanvasTexture(jeu.canvas);
 texJeu.colorSpace = THREE.SRGBColorSpace;
 
@@ -342,20 +343,83 @@ let mode = "salle", lacet = 0, tangage = 0, cible = null, transition = null, ret
 const touches = {};
 camera.position.set(0, 1.65, 6.5);
 
-$("accueil").onclick = () => rendu.domElement.requestPointerLock();
-document.addEventListener("pointerlockchange", () => {
-  const verrouille = document.pointerLockElement === rendu.domElement;
-  $("accueil").classList.toggle("cache", verrouille || mode !== "salle");
-  $("viseur").classList.toggle("cache", !verrouille);
-});
-addEventListener("mousemove", (e) => {
-  if (!document.pointerLockElement || mode !== "salle") return;
-  lacet -= e.movementX * 0.0022;
-  tangage = Math.max(-1.2, Math.min(1.2, tangage - e.movementY * 0.0022));
-});
+const TACTILE = matchMedia("(hover: none) and (pointer: coarse)").matches;
+let joy = null, look = null;
+if (TACTILE) $("aide").textContent = "JOYSTICK BOUGER · GLISSER REGARDER · TAP BORNE";
+
+function basculerMode(nom) {
+  mode = nom;
+  document.body.classList.toggle("ensalle", nom === "salle");
+  document.body.classList.toggle("enjeu", nom === "jeu");
+}
+basculerMode("salle");
+
+if (TACTILE) {
+  $("accueil").onclick = () => {
+    $("accueil").classList.add("cache");
+    $("viseur").classList.remove("cache");
+  };
+  const toucher = rendu.domElement;
+  toucher.addEventListener("touchstart", (e) => {
+    if (mode !== "salle") return;
+    for (const t of e.changedTouches) {
+      if (t.clientX < innerWidth / 2 && !joy) {
+        joy = { id: t.identifier, x0: t.clientX, y0: t.clientY, dx: 0, dy: 0 };
+      } else if (!look) {
+        look = { id: t.identifier, x: t.clientX, y: t.clientY };
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  toucher.addEventListener("touchmove", (e) => {
+    if (mode !== "salle") return;
+    for (const t of e.changedTouches) {
+      if (joy && t.identifier === joy.id) {
+        const R = 50;
+        joy.dx = Math.max(-R, Math.min(R, t.clientX - joy.x0));
+        joy.dy = Math.max(-R, Math.min(R, t.clientY - joy.y0));
+        $("joystick").style.setProperty("--jx", `${50 + joy.dx}%`);
+        $("joystick").style.setProperty("--jy", `${50 + joy.dy}%`);
+      } else if (look && t.identifier === look.id) {
+        const dx = t.clientX - look.x, dy = t.clientY - look.y;
+        look.x = t.clientX; look.y = t.clientY;
+        lacet -= dx * 0.004;
+        tangage = Math.max(-1.2, Math.min(1.2, tangage - dy * 0.004));
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const relacher = (e) => {
+    for (const t of e.changedTouches) {
+      if (joy && t.identifier === joy.id) {
+        joy = null;
+        $("joystick").style.setProperty("--jx", "50%");
+        $("joystick").style.setProperty("--jy", "50%");
+      } else if (look && t.identifier === look.id) look = null;
+    }
+  };
+  toucher.addEventListener("touchend", relacher);
+  toucher.addEventListener("touchcancel", relacher);
+  $("action").addEventListener("click", (e) => {
+    e.preventDefault();
+    if (mode === "salle" && cible) utiliser(cible);
+  });
+} else {
+  $("accueil").onclick = () => rendu.domElement.requestPointerLock();
+  document.addEventListener("pointerlockchange", () => {
+    const verrouille = document.pointerLockElement === rendu.domElement;
+    $("accueil").classList.toggle("cache", verrouille || mode !== "salle");
+    $("viseur").classList.toggle("cache", !verrouille);
+  });
+  addEventListener("mousemove", (e) => {
+    if (!document.pointerLockElement || mode !== "salle") return;
+    lacet -= e.movementX * 0.0022;
+    tangage = Math.max(-1.2, Math.min(1.2, tangage - e.movementY * 0.0022));
+  });
+}
 addEventListener("keydown", (e) => {
   touches[e.code] = true;
-  if (mode === "salle" && e.code === "KeyE" && cible && document.pointerLockElement) utiliser(cible);
+  if (mode === "salle" && e.code === "KeyE" && cible && (TACTILE || document.pointerLockElement)) utiliser(cible);
 });
 addEventListener("keyup", (e) => (touches[e.code] = false));
 
@@ -366,20 +430,20 @@ function utiliser(borne) {
       .then((r) => montrerInfo(r.ok ? "LANCÉ DANS UN TERMINAL" : "BIENTÔT DISPONIBLE"));
     return;
   }
-  mode = "transition";
+  basculerMode("transition");
   retour = { position: camera.position.clone(), quaternion: camera.quaternion.clone() };
   transition = { de: retour.position, deQ: retour.quaternion, vers: borne.vue.position, versQ: borne.vue.quaternion, t: 0, puis: "jeu" };
-  document.exitPointerLock();
+  if (!TACTILE) document.exitPointerLock();
   $("info").classList.add("cache");
   $("accueil").classList.add("cache");
-  $("aide").textContent = "← → BOUGER · ESPACE TIRER · P PAUSE · ÉCHAP SORTIR";
+  $("aide").textContent = TACTILE ? "◀ ▶ BOUGER · 🔥 TIRER" : "← → BOUGER · ESPACE TIRER · P PAUSE · ÉCHAP SORTIR";
 }
 function sortirDuJeu() {
   jeu.activer(false);
   jeu.canvas.classList.add("cache");
-  mode = "transition";
+  basculerMode("transition");
   transition = { de: camera.position.clone(), deQ: camera.quaternion.clone(), vers: retour.position, versQ: retour.quaternion, t: 0, puis: "salle" };
-  $("aide").textContent = "ZQSD BOUGER · SOURIS REGARDER · E JOUER";
+  $("aide").textContent = TACTILE ? "JOYSTICK BOUGER · GLISSER REGARDER · TAP BORNE" : "ZQSD BOUGER · SOURIS REGARDER · E JOUER";
 }
 function montrerInfo(texte) {
   $("info").textContent = texte;
@@ -387,8 +451,9 @@ function montrerInfo(texte) {
 }
 
 function deplacer(dt) {
-  const avant = (touches.KeyW || touches.ArrowUp ? 1 : 0) - (touches.KeyS || touches.ArrowDown ? 1 : 0);
-  const cote = (touches.KeyD || touches.ArrowRight ? 1 : 0) - (touches.KeyA || touches.ArrowLeft ? 1 : 0);
+  let avant = (touches.KeyW || touches.ArrowUp ? 1 : 0) - (touches.KeyS || touches.ArrowDown ? 1 : 0);
+  let cote = (touches.KeyD || touches.ArrowRight ? 1 : 0) - (touches.KeyA || touches.ArrowLeft ? 1 : 0);
+  if (joy) { avant = -joy.dy / 50; cote = joy.dx / 50; }
   const vitesse = (touches.ShiftLeft ? 6 : 3.2) * dt;
   const s = Math.sin(lacet), c = Math.cos(lacet), p = camera.position;
   p.x += (-s * avant + c * cote) * vitesse;
@@ -413,9 +478,11 @@ function viser() {
     if (vers.length() < 3 && vers.normalize().dot(regard) > 0.8) cible = b;
   }
   $("viseur").classList.toggle("actif", !!cible);
+  document.body.classList.toggle("cible", !!cible && mode === "salle");
+  if (cible) $("action").textContent = cible.p.numero === 10 ? "JOUER" : "LANCER";
   if (minuterieInfo > 0) return $("info").classList.remove("cache");
   $("info").classList.toggle("cache", !cible);
-  if (cible) $("info").textContent = `[E] ${cible.p.numero === 10 ? "JOUER" : "LANCER"} · ${cible.p.numero} · ${cible.p.nom} · ${cible.p.binome}`;
+  if (cible) $("info").textContent = `${TACTILE ? "TAP" : "[E]"} ${cible.p.numero === 10 ? "JOUER" : "LANCER"} · ${cible.p.numero} · ${cible.p.nom} · ${cible.p.binome}`;
 }
 
 if (location.hash === "#jeu") utiliser(bornes.at(-1));
@@ -434,8 +501,8 @@ rendu.setAnimationLoop((maintenant) => {
     camera.position.lerpVectors(transition.de, transition.vers, k);
     camera.quaternion.slerpQuaternions(transition.deQ, transition.versQ, k);
     if (transition.t === 1) {
-      mode = transition.puis;
-      if (mode === "salle") $("accueil").classList.remove("cache");
+      basculerMode(transition.puis);
+      if (mode === "salle" && !TACTILE) $("accueil").classList.remove("cache");
       if (mode === "jeu") { jeu.canvas.classList.remove("cache"); jeu.activer(true); }
     }
   }
