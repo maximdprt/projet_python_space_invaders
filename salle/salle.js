@@ -223,6 +223,10 @@ jeu.canvas.className = "plein cache";
 document.body.append(jeu.canvas);
 jeu.surQuitter(sortirDuJeu);
 $("sortir").addEventListener("click", () => { if (mode === "jeu") sortirDuJeu(); });
+$("action").addEventListener("click", (e) => {
+  e.preventDefault();
+  if (mode === "salle" && cible) utiliser(cible);
+});
 const texJeu = new THREE.CanvasTexture(jeu.canvas);
 texJeu.colorSpace = THREE.SRGBColorSpace;
 
@@ -400,10 +404,6 @@ if (TACTILE) {
   };
   toucher.addEventListener("touchend", relacher);
   toucher.addEventListener("touchcancel", relacher);
-  $("action").addEventListener("click", (e) => {
-    e.preventDefault();
-    if (mode === "salle" && cible) utiliser(cible);
-  });
 } else {
   $("accueil").onclick = () => rendu.domElement.requestPointerLock();
   document.addEventListener("pointerlockchange", () => {
@@ -471,11 +471,11 @@ function deplacer(dt) {
 }
 
 function viser() {
-  const regard = camera.getWorldDirection(V3());
   cible = null;
+  let meilleure = 2.2;
   for (const b of bornes) {
-    const vers = b.position.clone().sub(camera.position);
-    if (vers.length() < 3 && vers.normalize().dot(regard) > 0.8) cible = b;
+    const d = b.position.distanceTo(camera.position);
+    if (d < meilleure) { cible = b; meilleure = d; }
   }
   $("viseur").classList.toggle("actif", !!cible);
   document.body.classList.toggle("cible", !!cible && mode === "salle");
