@@ -217,9 +217,55 @@ export function creerJeu() {
     bouton.addEventListener("mouseup", presser(false));
     bouton.addEventListener("mouseleave", presser(false));
   }
-  brancherBouton("btn-gauche", "gauche");
-  brancherBouton("btn-droite", "droite");
   brancherBouton("btn-tir", "tir");
+  // Barre latérale : glisser le doigt à gauche ou à droite pour bouger.
+  const barre = document.getElementById("barre");
+  const curseur = barre && barre.querySelector(".curseur");
+  let doigtBarre = null;
+  function majBarre(clientX) {
+    const r = barre.getBoundingClientRect();
+    const centre = r.left + r.width / 2;
+    const dx = Math.max(-1, Math.min(1, (clientX - centre) / (r.width / 2 - 28)));
+    const seuil = 0.15;
+    const gauche = dx < -seuil, droite = dx > seuil;
+    if (touches.gauche !== gauche || touches.droite !== droite) {
+      touches.gauche = gauche;
+      touches.droite = droite;
+      moteur.touches(touches);
+    }
+    curseur.style.left = `calc(${50 + dx * 42}% - 28px)`;
+  }
+  function relacherBarre() {
+    doigtBarre = null;
+    if (touches.gauche || touches.droite) {
+      touches.gauche = touches.droite = false;
+      moteur.touches(touches);
+    }
+    curseur.style.left = "calc(50% - 28px)";
+  }
+  if (barre) {
+    barre.addEventListener("touchstart", (e) => {
+      if (!actif) return;
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      doigtBarre = t.identifier;
+      majBarre(t.clientX);
+    }, { passive: false });
+    barre.addEventListener("touchmove", (e) => {
+      if (!actif || doigtBarre === null) return;
+      e.preventDefault();
+      for (const t of e.changedTouches) if (t.identifier === doigtBarre) majBarre(t.clientX);
+    }, { passive: false });
+    const fin = (e) => {
+      if (doigtBarre === null) return;
+      for (const t of e.changedTouches) if (t.identifier === doigtBarre) relacherBarre();
+    };
+    barre.addEventListener("touchend", fin);
+    barre.addEventListener("touchcancel", fin);
+    barre.addEventListener("mousedown", (e) => { if (actif) { e.preventDefault(); doigtBarre = -1; majBarre(e.clientX); } });
+    addEventListener("mousemove", (e) => { if (actif && doigtBarre === -1) majBarre(e.clientX); });
+    addEventListener("mouseup", () => { if (doigtBarre === -1) relacherBarre(); });
+  }
   // Taper le canvas tire aussi (écran de titre : lance la partie).
   canvas.addEventListener("touchstart", (e) => {
     if (!actif) return;
