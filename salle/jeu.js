@@ -207,7 +207,7 @@ export function creerJeu() {
       e.preventDefault();
       if (touches[nom] !== appuye) {
         touches[nom] = appuye;
-        envoyer("/api/touches", touches);
+        moteur.touches(touches);
       }
     };
     bouton.addEventListener("touchstart", presser(true), { passive: false });
@@ -225,12 +225,12 @@ export function creerJeu() {
     if (!actif) return;
     e.preventDefault();
     touches.tir = true;
-    envoyer("/api/touches", touches);
+    moteur.touches(touches);
   }, { passive: false });
   canvas.addEventListener("touchend", () => {
     if (!actif) return;
     touches.tir = false;
-    envoyer("/api/touches", touches);
+    moteur.touches(touches);
   });
   function activer(oui) {
     actif = oui;
