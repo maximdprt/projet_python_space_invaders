@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / build de la salle 3D
+node_modules/
+salle/dist/
+
+# Secrets / environnement
+.env
+
+# Systeme / editeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Documents de cours et fichiers perso (non publies)
+*.pdf
+*.jpeg
+*.jpg
+PROMPT_SPACE_INVADERS.md
