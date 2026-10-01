@@ -1,0 +1,102 @@
+[
+  {
+    "numero": 1,
+    "nom": "Pendu",
+    "binome": "Abir & Louise",
+    "difficulte": "faible",
+    "couleur": "#1f7a4d",
+    "type": "terminal",
+    "dossier": "projets/projet_01_pendu",
+    "disponible": false
+  },
+  {
+    "numero": 2,
+    "nom": "Calculatrice",
+    "binome": "César & Gaspard D.",
+    "difficulte": "faible",
+    "couleur": "#1f7a4d",
+    "type": "terminal",
+    "dossier": "projets/projet_02_calculatrice",
+    "disponible": false
+  },
+  {
+    "numero": 3,
+    "nom": "Morpion vs Ordi",
+    "binome": "Amaury & Ethan",
+    "difficulte": "moyen",
+    "couleur": "#d9940f",
+    "type": "terminal",
+    "dossier": "projets/projet_03_morpion",
+    "disponible": false
+  },
+  {
+    "numero": 4,
+    "nom": "Aventure textuelle",
+    "binome": "Alexandre & Bruno",
+    "difficulte": "moyen",
+    "couleur": "#d9940f",
+    "type": "terminal",
+    "dossier": "projets/projet_04_aventure",
+    "disponible": false
+  },
+  {
+    "numero": 5,
+    "nom": "Blackjack",
+    "binome": "Gaspard de B. & Paul",
+    "difficulte": "moyen",
+    "couleur": "#d9940f",
+    "type": "terminal",
+    "dossier": "projets/projet_05_blackjack",
+    "disponible": false
+  },
+  {
+    "numero": 6,
+    "nom": "Jeu de la vie",
+    "binome": "Hector & Orehn",
+    "difficulte": "moyen",
+    "couleur": "#d9940f",
+    "type": "terminal",
+    "dossier": "projets/projet_06_jeu_de_la_vie",
+    "disponible": false
+  },
+  {
+    "numero": 7,
+    "nom": "Puissance 4",
+    "binome": "Jules & Léon",
+    "difficulte": "moyen à élevé",
+    "couleur": "#d61c6b",
+    "type": "terminal",
+    "dossier": "projets/projet_07_puissance_4",
+    "disponible": false
+  },
+  {
+    "numero": 8,
+    "nom": "Bataille navale",
+    "binome": "William & Erwan",
+    "difficulte": "moyen à élevé",
+    "couleur": "#d61c6b",
+    "type": "terminal",
+    "dossier": "projets/projet_08_bataille_navale",
+    "disponible": false
+  },
+  {
+    "numero": 9,
+    "nom": "Snake",
+    "binome": "Clément & Elyot",
+    "difficulte": "moyen à élevé",
+    "couleur": "#d61c6b",
+    "type": "terminal",
+    "dossier": "projets/projet_09_snake",
+    "disponible": false
+  },
+  {
+    "numero": 10,
+    "nom": "Space Invaders",
+    "binome": "Corentin & Maxim",
+    "difficulte": "moyen à élevé",
+    "couleur": "#d61c6b",
+    "type": "integre",
+    "dossier": "src/space_invaders",
+    "disponible": true
+  }
+]
