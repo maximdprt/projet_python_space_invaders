@@ -105,6 +105,7 @@ export function creerJeu() {
     texte(`RECORD ${record}`, L / 2, 30, 14, "#ffc83d");
     texte(`VAGUE ${etat.vague}`, L - 16, 30, 14, "#22f5ff", "right");
     texte(`FORME ${etat.forme}/5 ${etat.vaisseau.sorte.toUpperCase()}`, 16, 56, 10, COULEURS[etat.vaisseau.sorte], "left");
+    if (etat.duree_forme > 0) texte(`TEMPS ${(etat.duree_forme / 60).toFixed(1)}s`, 16, 72, 10, COULEURS[etat.vaisseau.sorte], "left");
     const icone = sprite(etat.vaisseau.sorte, 0);
     for (let i = 0; i < etat.vies; i++) centrer(ctx, icone, 30 + i * 40, H - 14, 0.4);
     ctx.fillStyle = "#ff2bd6";

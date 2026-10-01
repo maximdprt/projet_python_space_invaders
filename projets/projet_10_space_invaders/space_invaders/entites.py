@@ -30,6 +30,7 @@ class Vaisseau(Entite):
         self.forme = 0
         self.recharge = 0
         self.invincible = 0
+        self.duree_forme = 0
 
     @property
     def vies(self):
@@ -59,6 +60,7 @@ class Vaisseau(Entite):
     def changer_forme(self, numero):
         self.forme = numero
         self.sorte = FORMES[numero]
+        self.duree_forme = 900 if numero >= 3 else 0
 
     def evoluer(self):
         if self.forme < len(FORMES) - 1:
@@ -78,6 +80,10 @@ class Vaisseau(Entite):
             self.recharge -= 1
         if self.invincible > 0:
             self.invincible -= 1
+        if self.duree_forme > 0:
+            self.duree_forme -= 1
+            if self.duree_forme == 0 and self.forme >= 3:
+                self.changer_forme(2)
 
     def decrire(self):
         description = super().decrire()

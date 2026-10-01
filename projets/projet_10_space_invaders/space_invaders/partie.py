@@ -92,6 +92,7 @@ class Partie:
             "vies": self.vaisseau.vies,
             "vague": self.vague,
             "forme": self.vaisseau.forme + 1,
+            "duree_forme": self.vaisseau.duree_forme,
             "ennemis_tues": self.ennemis_tues,
             "vaisseau": self.vaisseau.decrire(),
             "ennemis": [ennemi.decrire() for ennemi in self.flotte.ennemis],

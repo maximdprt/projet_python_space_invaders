@@ -2,7 +2,7 @@ LARGEUR = 800
 HAUTEUR = 600
 LIGNE_DEFAITE = 540
 VIES_MAX = 5
-PROBA_BONUS = 0.15
+PROBA_BONUS = 0.05
 
 POINTS = {"poulpe": 30, "crabe": 20, "meduse": 10}
 
