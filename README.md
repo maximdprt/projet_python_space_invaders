@@ -25,6 +25,7 @@ Lien direct vers la borne : `http://localhost:8000/#jeu`.
 | Espace | | tirer, démarrer, rejouer |
 | P | | pause |
 | Échap | | revenir dans la salle |
+| F | couper / remettre les effets néon (PC lent) | |
 
 ## Le jeu en Python pur : 4 fichiers
 
@@ -37,8 +38,8 @@ niveaux.py  ←  entites.py  ←  flotte.py  ←  partie.py
 
 | Fichier | Rôle | Notions du cours montrées |
 |---|---|---|
-| `niveaux.py` | constantes, les 5 paliers, paramètres d'une vague | liste de dictionnaires, fonctions + `return`, accumulateur |
-| `entites.py` | `Entite` → `Vaisseau`, `Missile`, `Ennemi` → `EnnemiBlinde`, `Soucoupe` | classes, héritage, `super()`, `@property` + setter + `raise ValueError` |
+| `niveaux.py` | constantes, canons de chaque vaisseau, les 5 paliers | dictionnaires, liste de dictionnaires, fonction + `return` |
+| `entites.py` | `Entite` → `Vaisseau`, `Missile`, `Ennemi` | classes, héritage, `super()`, `@property` + setter + `raise ValueError` |
 | `flotte.py` | la grille d'ennemis : avance, rebondit, descend, riposte | composition, boucles imbriquées, `random` |
 | `partie.py` | assemble tout : tirs, collisions, score, vies, vagues, paliers | composition, `from ... import` |
 | `../main.py` | lance une partie de démonstration sans affichage | `import`, `if __name__ == "__main__"` |
@@ -50,8 +51,8 @@ Le moteur tourne aussi sans aucun affichage : `cd projets/projet_10_space_invade
 - 3 vies, score et meilleur score affichés.
 - Quand la flotte est détruite, une nouvelle vague arrive, un peu plus rapide.
 - **Paliers** selon le nombre d'ennemis tués (0, 20, 50, 100, 170) : le vaisseau se transforme
-  (chasseur → intercepteur → faucon → croiseur → dreadnought), son arme change (simple, double, triple, éventail, laser perforant)
-  et il gagne une vie ; les vagues suivantes sont plus grandes, avec des ennemis blindés.
+  (chasseur → intercepteur → faucon → croiseur → dreadnought) et tire 1, 2, 3, 4 puis 5 missiles à la fois
+  et il gagne une vie ; les vagues suivantes ont plus d'ennemis, plus rapides, qui tirent plus souvent.
 - Défaite à 0 vie ou si les envahisseurs arrivent en bas.
 
 ## Architecture
@@ -62,7 +63,7 @@ main.py → lanceur/serveur.py (Python, bibliothèque standard)
             ├─ envoie l'état du jeu au navigateur (/api/flux)
             ├─ reçoit les touches (/api/touches, /api/pause)
             └─ ouvre un terminal pour les projets 1 à 9 (/api/lancer/<n>)
-salle/ (navigateur) : index.html + salle.js (salle 3D, Three.js) + jeu.js (dessin du jeu)
+salle/ (navigateur) : index.html + salle.js (salle 3D) + jeu.js (dessin du jeu) + lib/ (Three.js, bloom, police, en local)
 ```
 
 Le navigateur **n'a aucune règle du jeu** : il dessine ce que Python lui envoie et lui transmet les touches.

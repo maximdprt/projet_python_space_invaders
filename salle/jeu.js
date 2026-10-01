@@ -2,12 +2,11 @@
 const L = 800, H = 600;
 
 const COULEURS = {
-  meduse: "#22f5ff", crabe: "#ff2bd6", poulpe: "#7dff3a", blinde: "#ffc83d", soucoupe: "#ff3b3b",
+  meduse: "#22f5ff", crabe: "#ff2bd6", poulpe: "#7dff3a", tir: "#22f5ff", plasma: "#ff2bd6",
   chasseur: "#22f5ff", intercepteur: "#3aa8ff", faucon: "#a85cff", croiseur: "#ffc83d", dreadnought: "#ff2bd6",
-  tir: "#22f5ff", laser: "#bfe6ff", plasma: "#ff2bd6", bombe: "#ff9d2b",
 };
-const PALETTE = { O: "#7a4b00", W: "#eef8ff", C: "#22f5ff", B: "#3a7bff", V: "#a85cff", G: "#ffc83d", D: "#5a5f7a", R: "#ff2bd6" };
-const ECHELLES = { soucoupe: 3.5, chasseur: 4, intercepteur: 3.4 };
+const PALETTE = { W: "#eef8ff", C: "#22f5ff", B: "#3a7bff", V: "#a85cff", G: "#ffc83d", D: "#5a5f7a", R: "#ff2bd6" };
+const ECHELLES = { chasseur: 4, intercepteur: 3.4 };
 
 // Pixel art : "/" sépare les lignes, "." = vide, X = couleur de l'entité.
 const SPRITES = {
@@ -17,9 +16,6 @@ const SPRITES = {
     "..X.....X../X..X...X..X/X.XXXXXXX.X/XXX.XXX.XXX/XXXXXXXXXXX/.XXXXXXXXX./..X.....X../.X.......X."],
   meduse: ["....XXXX..../.XXXXXXXXXX./XXXXXXXXXXXX/XXX..XX..XXX/XXXXXXXXXXXX/...XX..XX.../..XX.XX.XX../XX........XX",
     "....XXXX..../.XXXXXXXXXX./XXXXXXXXXXXX/XXX..XX..XXX/XXXXXXXXXXXX/..XXX..XXX../.XX..XX..XX./..XX....XX.."],
-  blinde: ["..XXXXXXXX../.XOOOOOOOOX./XXOXXXXXXOXX/XOX.XXXX.XOX/XXXXXXXXXXXX/XOOXXOOXXOOX/.XX.XXXX.XX./XX..X..X..XX",
-    "..XXXXXXXX../.XOOOOOOOOX./XXOXXXXXXOXX/XOX.XXXX.XOX/XXXXXXXXXXXX/XOOXXOOXXOOX/.XX.XXXX.XX./.XX.X..X.XX."],
-  soucoupe: [".....XXXXXX...../...XXXXXXXXXX.../..XXXXXXXXXXXX../.XX.XX.XX.XX.XX./XXXXXXXXXXXXXXXX/..XXX..XX..XXX../...X........X..."],
   chasseur: ["......W....../.....WCW...../.....WCW...../....WWWWW..../.C..WWBWW..C./.W.WWWWWWW.W./WWWWWWWWWWWWW/WWWWW...WWWWW/.CC.......CC."],
   intercepteur: ["........W......../.......WCW......./.......WCW......./......WWWWW....../.....WWBBBWW...../W...WWWWWWWWW...W/WW.WWWWWWWWWWW.WW/WWWWWCWWWWWCWWWWW/.WWW..WW.WW..WWW./.C.....C.C.....C."],
   faucon: [".........W........./........WVW......../........VVV......../.......WVVVW......./......WWWWWWW....../..C..WWWBBBWWW..C../..W.WWWWWWWWWWW.W../.WWWWWWWWWWWWWWWWW./WWWCWWWWWWWWWWWCWWW/WWW.WWWW...WWWW.WWW/.W...WW.....WW...W."],
@@ -31,7 +27,7 @@ const cache = {};
 function sprite(sorte, image) {
   const cle = sorte + image;
   if (!cache[cle]) {
-    const motifs = SPRITES[sorte] || SPRITES.meduse;
+    const motifs = SPRITES[sorte];
     const lignes = motifs[image % motifs.length].split("/");
     const e = ECHELLES[sorte] || 3, m = 10;
     const c = document.createElement("canvas");
@@ -50,9 +46,8 @@ function sprite(sorte, image) {
   return cache[cle];
 }
 
-function centrer(ctx, img, e, taille = 1) {
-  const l = img.width * taille, h = img.height * taille;
-  ctx.drawImage(img, e.x + e.largeur / 2 - l / 2, e.y + e.hauteur / 2 - h / 2, l, h);
+function centrer(ctx, img, x, y, taille = 1) {
+  ctx.drawImage(img, x - (img.width * taille) / 2, y - (img.height * taille) / 2, img.width * taille, img.height * taille);
 }
 
 // Calque CRT (scanlines + vignette) calculé une seule fois.
@@ -68,73 +63,66 @@ crt.width = L; crt.height = H;
   g.fillStyle = v;
   g.fillRect(0, 0, L, H);
 }
-
 const etoiles = Array.from({ length: 90 }, () => ({ x: Math.random() * L, y: Math.random() * H, v: 0.2 + Math.random() * 1.2 }));
 
 export function creerEcranJeu() {
   const canvas = document.createElement("canvas");
   canvas.width = L; canvas.height = H;
   const ctx = canvas.getContext("2d");
-  let etat = null, particules = [], secousse = 0, palier = 1, banniere = null;
+  let etat = null, avant = null, particules = [], secousse = 0, banniere = null;
+  let record = Number(localStorage.getItem("record") || 0);
 
   function texte(t, x, y, taille = 16, couleur = "#fff", align = "center") {
     ctx.font = `${taille}px Pixel`;
     ctx.textAlign = align;
-    ctx.fillStyle = couleur;
-    ctx.shadowColor = couleur;
+    ctx.fillStyle = ctx.shadowColor = couleur;
     ctx.shadowBlur = 12;
     ctx.fillText(t, x, y);
     ctx.shadowBlur = 0;
   }
 
-  function recevoir(nouvelEtat) {
-    etat = nouvelEtat;
-    if (etat.statut === "accueil") banniere = null;
-    for (const ev of etat.evenements) {
-      if (ev.type === "touche") secousse = 14;
-      if (ev.type === "explosion") for (let i = 0; i < 16; i++) {
-        const a = Math.random() * 6.28, v = 1 + Math.random() * 4;
-        particules.push({ x: ev.x + 18, y: ev.y + 13, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vie: 30, c: COULEURS[ev.sorte] });
-      }
+  // Les animations se déduisent de la différence entre deux états reçus de Python.
+  function recevoir(nouveau) {
+    avant = etat;
+    etat = nouveau;
+    for (const e of etat.explosions) for (let i = 0; i < 16; i++) {
+      const a = Math.random() * 6.28, v = 1 + Math.random() * 4;
+      particules.push({ x: e.x + 18, y: e.y + 13, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vie: 30, c: COULEURS[e.sorte] });
     }
-    if (etat.palier > palier) banniere = { t: 150, texte: `PALIER ${etat.palier} - ${etat.nom_palier}`, sorte: etat.vaisseau.sorte };
-    palier = etat.palier;
+    if (!avant || etat.statut !== "en_cours" || avant.statut !== "en_cours") return;
+    if (etat.vies < avant.vies) secousse = 14;
+    if (etat.palier !== avant.palier) banniere = { t: 150, texte: `PALIER ${etat.palier}`, sorte: etat.vaisseau.sorte };
+    else if (etat.vague !== avant.vague) banniere = { t: 90, texte: `VAGUE ${etat.vague}`, sorte: etat.vaisseau.sorte };
+    if (etat.score > record) localStorage.setItem("record", (record = etat.score));
   }
 
-  function hud(etat, temps) {
+  function hud(temps) {
     texte(`SCORE ${etat.score}`, 16, 30, 14, "#fff", "left");
-    texte(`HI ${Math.max(etat.score, etat.meilleur_score)}`, L / 2, 30, 14, "#ffc83d");
+    texte(`RECORD ${record}`, L / 2, 30, 14, "#ffc83d");
     texte(`VAGUE ${etat.vague}`, L - 16, 30, 14, "#22f5ff", "right");
-    texte(etat.nom_palier, 16, 56, 10, COULEURS[etat.vaisseau.sorte], "left");
-    if (etat.prochain_seuil > 0) {
-      ctx.fillStyle = "#ffffff22";
-      ctx.fillRect(120, 48, 160, 8);
-      ctx.fillStyle = COULEURS[etat.vaisseau.sorte];
-      ctx.fillRect(120, 48, 160 * Math.min(1, etat.ennemis_tues / etat.prochain_seuil), 8);
-    }
+    texte(`${etat.palier} - ${etat.ennemis_tues} TUES`, 16, 56, 10, COULEURS[etat.vaisseau.sorte], "left");
     const icone = sprite(etat.vaisseau.sorte, 0);
-    for (let i = 0; i < etat.vies; i++) ctx.drawImage(icone, 12 + i * 40, H - 28, icone.width * 0.4, icone.height * 0.4);
+    for (let i = 0; i < etat.vies; i++) centrer(ctx, icone, 30 + i * 40, H - 14, 0.4);
     ctx.fillStyle = "#ff2bd6";
     ctx.fillRect(0, 575, L, 2);
     if (banniere && banniere.t-- > 0) {
-      texte(banniere.texte, L / 2, 250, 22, COULEURS[banniere.sorte]);
-      centrer(ctx, sprite(banniere.sorte, 0), { x: L / 2, y: 320, largeur: 0, hauteur: 0 }, 1.6);
+      texte(banniere.texte, L / 2, 260, 26, COULEURS[banniere.sorte]);
+      if (banniere.texte.startsWith("PALIER")) centrer(ctx, sprite(banniere.sorte, 0), L / 2, 330, 1.6);
     }
-    if (etat.attente && etat.statut === "en_cours") texte(`VAGUE ${etat.vague}`, L / 2, H / 2 + 120, 26, "#22f5ff");
   }
 
-  function ecranTitre(etat, temps) {
+  function ecranTitre(temps) {
     ctx.fillStyle = "rgba(5,0,15,.75)";
     ctx.fillRect(0, 0, L, H);
-    if (etat.statut === "pause") return texte("PAUSE", L / 2, H / 2, 32, "#22f5ff");
+    if (etat.pause) return texte("PAUSE", L / 2, H / 2, 32, "#22f5ff");
     const perdu = etat.statut === "perdu";
-    texte(perdu ? "GAME OVER" : "SPACE INVADERS", L / 2, 150, perdu ? 40 : 36, perdu ? "#ff3b3b" : "#ff2bd6");
-    if (perdu) texte(`SCORE ${etat.score}   HI ${etat.meilleur_score}`, L / 2, 210, 16, "#ffc83d");
-    ["poulpe", "crabe", "meduse", "blinde", "soucoupe"].forEach((sorte, i) => {
-      centrer(ctx, sprite(sorte, Math.floor(temps / 500)), { x: 300, y: 250 + i * 46, largeur: 0, hauteur: 0 });
-      texte(`= ${[30, 20, 10, 40, 150][i]} PTS`, 350, 258 + i * 46, 14, COULEURS[sorte], "left");
+    texte(perdu ? "GAME OVER" : "SPACE INVADERS", L / 2, 160, perdu ? 40 : 36, perdu ? "#ff3b3b" : "#ff2bd6");
+    if (perdu) texte(`SCORE ${etat.score}   RECORD ${record}`, L / 2, 220, 16, "#ffc83d");
+    ["poulpe", "crabe", "meduse"].forEach((sorte, i) => {
+      centrer(ctx, sprite(sorte, Math.floor(temps / 500)), 330, 290 + i * 50);
+      texte(`= ${[30, 20, 10][i]} PTS`, 370, 298 + i * 50, 14, COULEURS[sorte], "left");
     });
-    if (Math.floor(temps / 500) % 2) texte(perdu ? "ESPACE POUR REJOUER" : "APPUIE SUR ESPACE", L / 2, 520, 18, "#fff");
+    if (Math.floor(temps / 500) % 2) texte(perdu ? "ESPACE POUR REJOUER" : "APPUIE SUR ESPACE", L / 2, 500, 18);
   }
 
   function dessiner(temps) {
@@ -147,16 +135,14 @@ export function creerEcranJeu() {
     }
     if (!etat) return texte("CONNEXION AU JEU PYTHON...", L / 2, H / 2, 16, "#22f5ff");
     if (secousse > 0) ctx.translate((Math.random() - 0.5) * secousse, (Math.random() - 0.5) * secousse--);
-
     const image = Math.floor(temps / 400);
-    for (const e of etat.ennemis) centrer(ctx, sprite(e.sorte, image), e);
+    for (const e of etat.ennemis) centrer(ctx, sprite(e.sorte, image), e.x + e.largeur / 2, e.y + e.hauteur / 2);
     ctx.globalCompositeOperation = "lighter";
     for (const m of etat.missiles) {
-      const laser = m.sorte === "laser", l = laser ? 6 : m.largeur, h = laser ? 34 : m.hauteur;
       ctx.fillStyle = COULEURS[m.sorte] + "55";
-      ctx.fillRect(m.x - 3, m.y - 3, l + 6, h + 6);
+      ctx.fillRect(m.x - 3, m.y - 3, m.largeur + 6, m.hauteur + 6);
       ctx.fillStyle = COULEURS[m.sorte];
-      ctx.fillRect(m.x, m.y, l, h);
+      ctx.fillRect(m.x, m.y, m.largeur, m.hauteur);
     }
     particules = particules.filter((p) => p.vie-- > 0);
     for (const p of particules) {
@@ -171,10 +157,10 @@ export function creerEcranJeu() {
     if (etat.statut !== "accueil" && !(v.invincible && image % 2)) {
       ctx.fillStyle = Math.random() < 0.5 ? "#ff9d2b" : "#22f5ff";
       ctx.fillRect(v.x + v.largeur / 2 - 4, v.y + v.hauteur + 2, 8, 4 + Math.random() * 8);
-      centrer(ctx, sprite(v.sorte, 0), v);
+      centrer(ctx, sprite(v.sorte, 0), v.x + v.largeur / 2, v.y + v.hauteur / 2);
     }
-    hud(etat, temps);
-    if (etat.statut !== "en_cours") ecranTitre(etat, temps);
+    hud(temps);
+    if (etat.statut !== "en_cours" || etat.pause) ecranTitre(temps);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(crt, 0, 0);
   }
