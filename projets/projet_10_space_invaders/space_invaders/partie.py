@@ -1,8 +1,8 @@
 import random
 
-from space_invaders.niveaux import LIGNE_DEFAITE, PROBA_BONUS
-from space_invaders.entites import Vaisseau, Bonus
+from space_invaders.entites import Bonus, Vaisseau
 from space_invaders.flotte import Flotte
+from space_invaders.niveaux import LIGNE_DEFAITE, PROBA_BONUS
 
 
 class Partie:
@@ -13,7 +13,6 @@ class Partie:
 
     def nouvelle_partie(self):
         self.score = 0
-        self.ennemis_tues = 0
         self.vague = 1
         self.vaisseau = Vaisseau()
         self.flotte = Flotte(1)
@@ -48,18 +47,24 @@ class Partie:
         self.ramasser_bonus()
         self.missiles = [missile for missile in self.missiles if missile.vivant]
         self.bonus = [bonus for bonus in self.bonus if bonus.vivant]
-        self.flotte.ennemis = [ennemi for ennemi in self.flotte.ennemis if ennemi.vivant]
+        self.flotte.ennemis = [
+            ennemi for ennemi in self.flotte.ennemis if ennemi.vivant
+        ]
         self.verifier_vague()
         self.verifier_defaite()
 
     def toucher_ennemis(self):
         for missile in self.missiles:
             for ennemi in self.flotte.ennemis:
-                if missile.sorte == "tir" and missile.vivant and ennemi.vivant and missile.touche(ennemi):
+                if (
+                    missile.sorte == "tir"
+                    and missile.vivant
+                    and ennemi.vivant
+                    and missile.touche(ennemi)
+                ):
                     missile.vivant = False
                     ennemi.vivant = False
                     self.score += ennemi.points
-                    self.ennemis_tues += 1
                     self.explosions.append(ennemi.decrire())
                     if random.random() < PROBA_BONUS:
                         self.bonus.append(Bonus(ennemi.x + 7, ennemi.y))
@@ -93,7 +98,6 @@ class Partie:
             "vague": self.vague,
             "forme": self.vaisseau.forme + 1,
             "duree_forme": self.vaisseau.duree_forme,
-            "ennemis_tues": self.ennemis_tues,
             "vaisseau": self.vaisseau.decrire(),
             "ennemis": [ennemi.decrire() for ennemi in self.flotte.ennemis],
             "missiles": [missile.decrire() for missile in self.missiles],

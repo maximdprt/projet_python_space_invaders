@@ -1,4 +1,17 @@
-from space_invaders.niveaux import LARGEUR, HAUTEUR, VIES_MAX, CANONS, POINTS, FORMES
+from space_invaders.niveaux import (
+    CANONS,
+    DUREE_FORME_TEMPORAIRE,
+    DUREE_INVINCIBLE,
+    FORMES,
+    HAUTEUR,
+    LARGEUR,
+    POINTS,
+    PREMIERE_FORME_TEMPORAIRE,
+    RECHARGE_TIR,
+    VIES_DEPART,
+    VIES_MAX,
+    VITESSE_VAISSEAU,
+)
 
 
 class Entite:
@@ -15,18 +28,27 @@ class Entite:
         self.y += dy
 
     def touche(self, autre):
-        return (self.x < autre.x + autre.largeur and autre.x < self.x + self.largeur
-                and self.y < autre.y + autre.hauteur and autre.y < self.y + self.hauteur)
+        return (
+            self.x < autre.x + autre.largeur
+            and autre.x < self.x + self.largeur
+            and self.y < autre.y + autre.hauteur
+            and autre.y < self.y + self.hauteur
+        )
 
     def decrire(self):
-        return {"x": self.x, "y": self.y, "largeur": self.largeur,
-                "hauteur": self.hauteur, "sorte": self.sorte}
+        return {
+            "x": self.x,
+            "y": self.y,
+            "largeur": self.largeur,
+            "hauteur": self.hauteur,
+            "sorte": self.sorte,
+        }
 
 
 class Vaisseau(Entite):
     def __init__(self):
         super().__init__(374, 540, 52, 30, "chasseur")
-        self.vies = 3
+        self.vies = VIES_DEPART
         self.forme = 0
         self.recharge = 0
         self.invincible = 0
@@ -43,16 +65,16 @@ class Vaisseau(Entite):
         self._vies = valeur
 
     def bouger(self, direction):
-        self.deplacer(direction * 6, 0)
+        self.deplacer(direction * VITESSE_VAISSEAU, 0)
         if self.x < 0:
             self.x = 0
-        if self.x > LARGEUR - self.largeur:
+        elif self.x > LARGEUR - self.largeur:
             self.x = LARGEUR - self.largeur
 
     def tirer(self):
         missiles = []
         if self.recharge == 0:
-            self.recharge = 18
+            self.recharge = RECHARGE_TIR
             for decalage in CANONS[self.sorte]:
                 missiles.append(Missile(self.x + 23 + decalage, self.y, -10))
         return missiles
@@ -60,7 +82,10 @@ class Vaisseau(Entite):
     def changer_forme(self, numero):
         self.forme = numero
         self.sorte = FORMES[numero]
-        self.duree_forme = 900 if numero >= 3 else 0
+        if numero >= PREMIERE_FORME_TEMPORAIRE:
+            self.duree_forme = DUREE_FORME_TEMPORAIRE
+        else:
+            self.duree_forme = 0
 
     def evoluer(self):
         if self.forme < len(FORMES) - 1:
@@ -71,7 +96,7 @@ class Vaisseau(Entite):
     def perdre_vie(self):
         if self.invincible == 0:
             self.vies -= 1
-            self.invincible = 90
+            self.invincible = DUREE_INVINCIBLE
             if self.forme > 0:
                 self.changer_forme(self.forme - 1)
 
@@ -82,8 +107,8 @@ class Vaisseau(Entite):
             self.invincible -= 1
         if self.duree_forme > 0:
             self.duree_forme -= 1
-            if self.duree_forme == 0 and self.forme >= 3:
-                self.changer_forme(2)
+            if self.duree_forme == 0:
+                self.changer_forme(PREMIERE_FORME_TEMPORAIRE - 1)
 
     def decrire(self):
         description = super().decrire()

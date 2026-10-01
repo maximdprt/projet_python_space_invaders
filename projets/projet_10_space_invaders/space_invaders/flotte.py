@@ -1,7 +1,7 @@
 import random
 
-from space_invaders.niveaux import LARGEUR, parametres_vague
 from space_invaders.entites import Ennemi
+from space_invaders.niveaux import LARGEUR, parametres_vague
 
 SORTES = ["poulpe", "crabe", "crabe", "meduse", "meduse"]
 
@@ -15,7 +15,9 @@ class Flotte:
         self.ennemis = []
         for ligne in range(parametres["lignes"]):
             for colonne in range(9):
-                self.ennemis.append(Ennemi(142 + colonne * 60, 70 + ligne * 45, SORTES[ligne]))
+                self.ennemis.append(
+                    Ennemi(142 + colonne * 60, 70 + ligne * 45, SORTES[ligne])
+                )
 
     def avancer(self):
         au_bord = False
@@ -34,8 +36,8 @@ class Flotte:
         return []
 
     def plus_bas(self):
-        plus_bas = 0
+        bas = 0
         for ennemi in self.ennemis:
-            if ennemi.y + ennemi.hauteur > plus_bas:
-                plus_bas = ennemi.y + ennemi.hauteur
-        return plus_bas
+            if ennemi.y + ennemi.hauteur > bas:
+                bas = ennemi.y + ennemi.hauteur
+        return bas
