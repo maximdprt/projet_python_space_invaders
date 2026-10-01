@@ -198,6 +198,39 @@ export function creerJeu() {
   });
   addEventListener("keyup", (e) => actif && changer(e, false));
   addEventListener("blur", () => actif && relacher());
+  function brancherBouton(id, nom) {
+    const bouton = document.getElementById(id);
+    if (!bouton) return;
+    const presser = (appuye) => (e) => {
+      if (!actif) return;
+      e.preventDefault();
+      if (touches[nom] !== appuye) {
+        touches[nom] = appuye;
+        envoyer("/api/touches", touches);
+      }
+    };
+    bouton.addEventListener("touchstart", presser(true), { passive: false });
+    bouton.addEventListener("touchend", presser(false));
+    bouton.addEventListener("touchcancel", presser(false));
+    bouton.addEventListener("mousedown", presser(true));
+    bouton.addEventListener("mouseup", presser(false));
+    bouton.addEventListener("mouseleave", presser(false));
+  }
+  brancherBouton("btn-gauche", "gauche");
+  brancherBouton("btn-droite", "droite");
+  brancherBouton("btn-tir", "tir");
+  // Taper le canvas tire aussi (écran de titre : lance la partie).
+  canvas.addEventListener("touchstart", (e) => {
+    if (!actif) return;
+    e.preventDefault();
+    touches.tir = true;
+    envoyer("/api/touches", touches);
+  }, { passive: false });
+  canvas.addEventListener("touchend", () => {
+    if (!actif) return;
+    touches.tir = false;
+    envoyer("/api/touches", touches);
+  });
   function activer(oui) {
     actif = oui;
     relacher();

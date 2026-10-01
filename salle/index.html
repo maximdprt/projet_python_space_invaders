@@ -25,6 +25,16 @@
   canvas.plein { position: fixed; inset: 0; margin: auto; width: min(94vw, 118vh); height: auto; border: 3px solid #ff2bd6;
     border-radius: 14px; box-shadow: 0 0 24px #ff2bd6aa, 0 0 80px #22f5ff33; }
   #simple { color: #8f7fbf; font-size: 10px; text-decoration: underline; }
+  #tactile { position: fixed; inset: auto 0 0 0; display: none; justify-content: space-between; padding: 0 18px 18px;
+    pointer-events: none; z-index: 10; }
+  #tactile button { pointer-events: auto; width: 76px; height: 76px; border-radius: 50%; border: 2px solid #22f5ff;
+    background: #0a0318cc; color: #22f5ff; font: 32px "Pixel", monospace; box-shadow: 0 0 12px #22f5ff88;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  #tactile button:active { background: #22f5ff33; }
+  #tactile .tir { border-color: #ff2bd6; color: #ff2bd6; box-shadow: 0 0 12px #ff2bd688; width: 92px; height: 92px; font-size: 36px; }
+  #tactile .groupe { display: flex; gap: 14px; }
+  body.tactile #tactile { display: flex; }
+  body.tactile #aide { font-size: 10px; }
   .cache { display: none !important; }
 </style>
 </head>
@@ -38,10 +48,19 @@
 <div id="viseur" class="cache"></div>
 <div id="info" class="cache"></div>
 <div id="aide">ZQSD BOUGER · SOURIS REGARDER · E JOUER</div>
+<div id="tactile">
+  <div class="groupe">
+    <button id="btn-gauche" aria-label="Gauche">◀</button>
+    <button id="btn-droite" aria-label="Droite">▶</button>
+  </div>
+  <button id="btn-tir" class="tir" aria-label="Tirer">🔥</button>
+</div>
 <script type="module">
-  // Sans carte graphique compatible (ou sur demande), on charge seulement le jeu en 2D.
+  // Sans carte graphique compatible (ou sur mobile/demande), on charge seulement le jeu en 2D.
   const webgl = !!document.createElement("canvas").getContext("webgl2");
-  import(location.hash === "#simple" || !webgl ? "./simple.js" : "./salle.js");
+  const tactile = matchMedia("(hover: none) and (pointer: coarse)").matches;
+  if (tactile) document.body.classList.add("tactile");
+  import(location.hash === "#simple" || !webgl || tactile ? "./simple.js" : "./salle.js");
 </script>
 </body>
 </html>
