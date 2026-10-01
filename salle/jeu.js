@@ -1,4 +1,6 @@
 // Affiche le jeu Python sur un canvas 800x600 et lui envoie les touches. Aucune règle du jeu ici.
+import { demarrerMoteur } from "./moteurs.js";
+
 const L = 800, H = 600;
 
 const COULEURS = {
@@ -138,7 +140,7 @@ export function creerJeu() {
       ctx.fillStyle = `rgba(200,220,255,${e.v / 1.6})`;
       ctx.fillRect(e.x, (e.y + temps * e.v * 0.03) % H, e.v > 1 ? 2 : 1, e.v > 1 ? 2 : 1);
     }
-    if (!etat) return texte("CONNEXION AU JEU PYTHON...", L / 2, H / 2, 16, "#22f5ff");
+    if (!etat) return texte("CHARGEMENT DU JEU PYTHON...", L / 2, H / 2, 16, "#22f5ff");
     if (secousse > 0) ctx.translate((Math.random() - 0.5) * secousse, (Math.random() - 0.5) * secousse--);
     const image = Math.floor(temps / 400);
     for (const e of etat.ennemis) centrer(ctx, sprite(e.sorte, image), e.x + e.largeur / 2, e.y + e.hauteur / 2);
@@ -172,8 +174,7 @@ export function creerJeu() {
   }
 
   // ---------- Connexion au jeu Python et touches ----------
-  new EventSource("/api/flux").onmessage = (m) => recevoir(JSON.parse(m.data));
-  const envoyer = (route, donnees) => fetch(route, { method: "POST", body: JSON.stringify(donnees) });
+  const moteur = demarrerMoteur(recevoir);
   const TOUCHES = { ArrowLeft: "gauche", ArrowRight: "droite", KeyA: "gauche", KeyD: "droite", Space: "tir" };
   const touches = { gauche: false, droite: false, tir: false };
   let actif = false, quitter = () => {};
@@ -183,17 +184,17 @@ export function creerJeu() {
     e.preventDefault();
     if (touches[nom] !== appuye) {
       touches[nom] = appuye;
-      envoyer("/api/touches", touches);
+      moteur.touches(touches);
     }
   }
   function relacher() {
     for (const nom in touches) touches[nom] = false;
-    envoyer("/api/touches", touches);
+    moteur.touches(touches);
   }
   addEventListener("keydown", (e) => {
     if (!actif) return;
     if (e.code === "Escape") return quitter();
-    if (e.code === "KeyP" && etat) envoyer("/api/pause", { pause: !etat.pause });
+    if (e.code === "KeyP" && etat) moteur.pause(!etat.pause);
     changer(e, true);
   });
   addEventListener("keyup", (e) => actif && changer(e, false));
@@ -234,7 +235,7 @@ export function creerJeu() {
   function activer(oui) {
     actif = oui;
     relacher();
-    envoyer("/api/pause", { pause: !oui });
+    moteur.pause(!oui);
   }
 
   return { canvas, dessiner, activer, surQuitter: (f) => (quitter = f) };

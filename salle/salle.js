@@ -7,7 +7,8 @@ import { creerJeu } from "./jeu.js";
 
 const $ = (id) => document.getElementById(id);
 await document.fonts.load("16px Pixel");
-const projets = await (await fetch("/api/projets")).json();
+import { EN_LOCAL } from "./moteurs.js";
+const projets = await (await fetch("projets.json")).json();
 
 // ---------- Moteur ----------
 const QUALITE_MAX = Math.min(devicePixelRatio, 1);
@@ -109,12 +110,21 @@ function neon(longueur, couleur, x, y, z, ry, motif = 1) {
   const halo = new THREE.MeshBasicMaterial({ map: degrade, color: couleur, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
   ajouter(new THREE.PlaneGeometry(longueur, 0.9), halo, x, y, z, ry).translateZ(0.03);
 }
+// texte : une chaîne d'une seule couleur, ou une liste de morceaux [texte, couleur] écrits à la suite.
 function enseigne(texte, couleur, largeur, x, y, z, ry, motif = 1, taille = 120) {
+  const morceaux = Array.isArray(texte) ? texte : [[texte, couleur]];
   const carte = toile(1024, 200, (g, l, h) => {
-    g.font = `${taille}px Pixel`; g.textAlign = "center"; g.textBaseline = "middle";
-    g.shadowColor = couleur; g.shadowBlur = 30;
-    g.strokeStyle = couleur; g.lineWidth = 10; g.strokeText(texte, l / 2, h / 2, l - 40);
-    g.shadowBlur = 0; g.fillStyle = "#fff"; g.fillText(texte, l / 2, h / 2, l - 40);
+    g.textBaseline = "middle";
+    g.font = `${taille}px Pixel`;
+    const total = morceaux.reduce((somme, [t]) => somme + g.measureText(t).width, 0);
+    g.font = `${Math.min(taille, (taille * (l - 60)) / total)}px Pixel`;
+    let gauche = (l - morceaux.reduce((somme, [t]) => somme + g.measureText(t).width, 0)) / 2;
+    for (const [t, c] of morceaux) {
+      g.shadowColor = c; g.shadowBlur = 30;
+      g.strokeStyle = c; g.lineWidth = 10; g.strokeText(t, gauche, h / 2);
+      g.shadowBlur = 0; g.fillStyle = "#fff"; g.fillText(t, gauche, h / 2);
+      gauche += g.measureText(t).width;
+    }
   });
   return ajouter(new THREE.PlaneGeometry(largeur, largeur / 5.12), lumiere("#fff", motif, carte), x, y, z, ry);
 }
@@ -281,8 +291,7 @@ ajouter(new THREE.BoxGeometry(6.4, 0.3, 4.4), LAQUE, 0, 0.15, -21.8);
 ajouter(new THREE.BoxGeometry(6.4, 0.04, 0.04), lumiere("#ff2bd6", 1), 0, 0.3, -19.6);
 creerBorne(projets.find((p) => p.numero === 10), 0, -21.4, 0, 1.2, 0.3);
 ajouter(new THREE.BoxGeometry(8.2, 2.1, 0.1), LAQUE, 0, 3.95, Z1 + 0.06);
-enseigne("EUGENIA", "#ff2bd6", 5.2, 0, 4.4, Z1 + 0.15, 0, 3);
-enseigne("ARCADE", "#22f5ff", 4.2, 0, 3.5, Z1 + 0.15, 0, 1);
+enseigne([["EUGENI", "#ff2bd6"], ["ARCADE", "#22f5ff"]], null, 7.6, 0, 3.95, Z1 + 0.15, 0, 3);
 // Chenillard : ampoules du cadre de l'enseigne, du bord de l'estrade et du lustre (une seule instruction de dessin).
 const ampoules = [];
 for (let x = -4; x <= 4; x += 0.27) ampoules.push(pose(x, 4.95, Z1 + 0.15));
@@ -352,6 +361,7 @@ addEventListener("keyup", (e) => (touches[e.code] = false));
 
 function utiliser(borne) {
   if (borne.p.numero !== 10) {
+    if (!EN_LOCAL) return montrerInfo("À LANCER EN LOCAL (python main.py)");
     fetch(`/api/lancer/${borne.p.numero}`, { method: "POST" }).then((r) => r.json())
       .then((r) => montrerInfo(r.ok ? "LANCÉ DANS UN TERMINAL" : "BIENTÔT DISPONIBLE"));
     return;
