@@ -10,7 +10,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(RACINE / "src"))
+sys.path.insert(0, str(RACINE / "projets" / "projet_10_space_invaders"))
 
 from space_invaders.partie import Partie
 

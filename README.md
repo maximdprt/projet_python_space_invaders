@@ -28,7 +28,7 @@ Lien direct vers la borne : `http://localhost:8000/#jeu`.
 
 ## Le jeu en Python pur : 4 fichiers
 
-Toute la logique du jeu est dans `src/space_invaders/`, écrite **uniquement avec les notions du cours**
+C'est le **10e jeu** de la salle : toute sa logique est dans `projets/projet_10_space_invaders/space_invaders/`, écrite **uniquement avec les notions du cours**
 (variables, conditions, boucles, fonctions, listes/dictionnaires, modules et packages, classes, `@property`, héritage, composition, `random`).
 
 ```
@@ -40,9 +40,10 @@ niveaux.py  ←  entites.py  ←  flotte.py  ←  partie.py
 | `niveaux.py` | constantes, les 5 paliers, paramètres d'une vague | liste de dictionnaires, fonctions + `return`, accumulateur |
 | `entites.py` | `Entite` → `Vaisseau`, `Missile`, `Ennemi` → `EnnemiBlinde`, `Soucoupe` | classes, héritage, `super()`, `@property` + setter + `raise ValueError` |
 | `flotte.py` | la grille d'ennemis : avance, rebondit, descend, riposte | composition, boucles imbriquées, `random` |
-| `partie.py` | assemble tout : tirs, collisions, score, vies, vagues, paliers | composition, `import`, `if __name__ == "__main__"` |
+| `partie.py` | assemble tout : tirs, collisions, score, vies, vagues, paliers | composition, `from ... import` |
+| `../main.py` | lance une partie de démonstration sans affichage | `import`, `if __name__ == "__main__"` |
 
-Le moteur tourne aussi sans aucun affichage : `python -m space_invaders.partie` (après `pip install -e .`).
+Le moteur tourne aussi sans aucun affichage : `cd projets/projet_10_space_invaders` puis `python main.py`.
 
 ### Règles
 
@@ -68,7 +69,7 @@ Le navigateur **n'a aucune règle du jeu** : il dessine ce que Python lui envoie
 
 ## Brancher un autre projet
 
-Voir [`projets/LISEZ_MOI.md`](projets/LISEZ_MOI.md) : un dossier `projets/projet_XX_nom/` avec un `main.py`,
+Voir [`projets/LISEZ_MOI.md`](projets/LISEZ_MOI.md) : un dossier `projets/projet_XX_nom/` avec un `main.py` (comme `projet_10_space_invaders/`),
 puis `"disponible": true` dans `projets/projets.json`.
 
 ## Tests

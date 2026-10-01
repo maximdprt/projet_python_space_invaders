@@ -15,8 +15,8 @@ dependencies = []
 dev = ["pytest>=8"]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["projets/projet_10_space_invaders"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "."]
+pythonpath = ["projets/projet_10_space_invaders", "."]
 testpaths = ["tests"]

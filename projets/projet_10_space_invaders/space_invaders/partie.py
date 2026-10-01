@@ -138,10 +138,3 @@ class Partie:
             "evenements": self.evenements,
         }
 
-
-if __name__ == "__main__":
-    partie = Partie()
-    partie.mettre_a_jour(False, False, True)
-    for numero in range(600):
-        partie.mettre_a_jour(False, numero % 40 < 20, numero % 7 == 0)
-    print(partie.etat()["score"], partie.etat()["vies"], partie.etat()["statut"])

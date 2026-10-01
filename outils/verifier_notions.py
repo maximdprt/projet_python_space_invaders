@@ -54,7 +54,7 @@ def auditer_fichier(chemin):
 def main():
     total = 0
     for nom in FICHIERS:
-        chemin = RACINE / "src" / "space_invaders" / nom
+        chemin = RACINE / "projets" / "projet_10_space_invaders" / "space_invaders" / nom
         fautes = auditer_fichier(chemin)
         nb_lignes = len(chemin.read_text(encoding="utf-8").splitlines())
         print(f"{nom:12} {nb_lignes:4} lignes, {len(fautes)} écart(s)")

@@ -105,7 +105,7 @@
     "difficulte": "moyen à élevé",
     "couleur": "#d61c6b",
     "type": "integre",
-    "dossier": "src/space_invaders",
+    "dossier": "projets/projet_10_space_invaders",
     "disponible": true,
     "icone": "👾"
   }
