@@ -67,7 +67,7 @@ main.py → lanceur/serveur.py (Python, bibliothèque standard)
             ├─ envoie l'état du jeu au navigateur (/api/flux)
             ├─ reçoit les touches (/api/touches, /api/pause)
             └─ ouvre un terminal pour les projets 1 à 9 (/api/lancer/<n>)
-salle/ (navigateur) : index.html + salle.js (salle 3D) + simple.js (jeu seul en 2D) + jeu.js (dessin du jeu, touches) + lib/ (Three.js et police)
+salle/ (navigateur) : index.html + salle.js (salle 3D) + personnage.js (mascottes) + simple.js (jeu seul en 2D) + jeu.js (dessin du jeu, touches) + lib/ (Three.js et police)
 ```
 
 Le navigateur **n'a aucune règle du jeu** : il dessine ce que Python lui envoie et lui transmet les touches.
@@ -89,6 +89,7 @@ python outils/verifier_notions.py
 
 `outils/verifier_notions.py` vérifie que les 4 fichiers n'utilisent aucune notion hors cours.
 
-## Crédits
+## La salle
 
-Personnages animés de la salle : [Kenney Mini Arcade](https://kenney.nl/assets/mini-arcade) (CC0, licence dans `salle/modeles/`).
+Cinq mascottes animées (`salle/personnage.js`) l'animent : deux jouent aux bornes, trois accueillent les visiteurs.
+Elles sont construites en formes simples Three.js, sans fichier de modèle à charger.

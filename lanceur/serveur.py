@@ -120,8 +120,8 @@ class Gestionnaire(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
-        vu = -1
         moteur.spectateurs += 1
+        vu = moteur.numero
         try:
             while True:
                 with moteur.signal:

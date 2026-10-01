@@ -85,6 +85,7 @@ export function creerJeu() {
 
   // Les animations se déduisent de la différence entre deux états reçus de Python.
   function recevoir(nouveau) {
+    if (!nouveau.statut) return;
     avant = etat;
     etat = nouveau;
     for (const e of etat.explosions) for (let i = 0; i < 16; i++) {
