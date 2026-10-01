@@ -16,6 +16,10 @@ python main.py
 Le navigateur s'ouvre sur `http://localhost:8000`. Clique pour entrer, avance jusqu'à la borne 10 au bout du tapis rouge et appuie sur **E**.
 Lien direct vers la borne : `http://localhost:8000/#jeu`.
 
+**PC lent ?** La salle baisse toute seule sa résolution si l'ordinateur rame, et la 3D est figée pendant la partie.
+Si ça ne suffit pas, le **mode simple** affiche uniquement le jeu en 2D : lien « PC lent ? » sur l'écran d'accueil,
+ou directement `http://localhost:8000/#simple` (choisi automatiquement si le navigateur ne gère pas la 3D).
+
 | Touche | Salle | Borne |
 |---|---|---|
 | ZQSD + souris | se déplacer, regarder | |
@@ -62,7 +66,7 @@ main.py → lanceur/serveur.py (Python, bibliothèque standard)
             ├─ envoie l'état du jeu au navigateur (/api/flux)
             ├─ reçoit les touches (/api/touches, /api/pause)
             └─ ouvre un terminal pour les projets 1 à 9 (/api/lancer/<n>)
-salle/ (navigateur) : index.html + salle.js (salle 3D) + jeu.js (dessin du jeu) + lib/ (Three.js et police, en local)
+salle/ (navigateur) : index.html + salle.js (salle 3D) + simple.js (jeu seul en 2D) + jeu.js (dessin du jeu, touches) + lib/ (Three.js et police)
 ```
 
 Le navigateur **n'a aucune règle du jeu** : il dessine ce que Python lui envoie et lui transmet les touches.

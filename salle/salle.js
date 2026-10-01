@@ -2,15 +2,17 @@
 // Optimisation : pas de post-traitement, matériaux simples, et toutes les animations de lumière
 // sont calculées par la carte graphique (un seul shader, une seule valeur "temps" envoyée par image).
 import * as THREE from "three";
-import { creerEcranJeu } from "./jeu.js";
+import { creerJeu } from "./jeu.js";
 
 const $ = (id) => document.getElementById(id);
 await document.fonts.load("16px Pixel");
 const projets = await (await fetch("/api/projets")).json();
 
 // ---------- Moteur ----------
-const rendu = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-rendu.setPixelRatio(Math.min(devicePixelRatio, 1.25));
+const QUALITE_MAX = Math.min(devicePixelRatio, 1);
+let qualite = QUALITE_MAX;
+const rendu = new THREE.WebGLRenderer({ powerPreference: "high-performance" });
+rendu.setPixelRatio(qualite);
 rendu.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.prepend(rendu.domElement);
 const scene = new THREE.Scene();
@@ -205,8 +207,11 @@ const geoBorne = new THREE.ExtrudeGeometry(new THREE.Shape(PROFIL.map(([z, y]) =
   .translate(0, 0, -0.4).rotateY(-Math.PI / 2);
 const geoContour = new THREE.BufferGeometry().setFromPoints(PROFIL.map(([z, y]) => V3(0, y, z)));
 const geoEcran = new THREE.PlaneGeometry(0.66, 0.495);
-const ecranJeu = creerEcranJeu();
-const texJeu = new THREE.CanvasTexture(ecranJeu.canvas);
+const jeu = creerJeu();
+jeu.canvas.className = "plein cache";
+document.body.append(jeu.canvas);
+jeu.surQuitter(sortirDuJeu);
+const texJeu = new THREE.CanvasTexture(jeu.canvas);
 texJeu.colorSpace = THREE.SRGBColorSpace;
 
 function marquee(p) {
@@ -305,18 +310,9 @@ for (const [c, x, z, i] of [["#ff2bd6", -5, -6, 22], ["#22f5ff", 5, -6, 22], ["#
   scene.add(l);
 }
 
-// ---------- Flux du jeu Python ----------
-let etatJeu = null;
-new EventSource("/api/flux").onmessage = (m) => {
-  etatJeu = JSON.parse(m.data);
-  ecranJeu.recevoir(etatJeu);
-};
-const envoyer = (route, donnees = {}) => fetch(route, { method: "POST", body: JSON.stringify(donnees) }).then((r) => r.json());
-
 // ---------- Contrôles ----------
 let mode = "salle", lacet = 0, tangage = 0, cible = null, transition = null, retour = null, pas = 0, minuterieInfo = 0;
-const touches = {}, touchesJeu = { gauche: false, droite: false, tir: false };
-const TOUCHES_JEU = { ArrowLeft: "gauche", ArrowRight: "droite", Space: "tir" };
+const touches = {};
 camera.position.set(0, 1.65, 6.5);
 
 $("accueil").onclick = () => rendu.domElement.requestPointerLock();
@@ -333,32 +329,13 @@ addEventListener("mousemove", (e) => {
 addEventListener("keydown", (e) => {
   touches[e.code] = true;
   if (mode === "salle" && e.code === "KeyE" && cible && document.pointerLockElement) utiliser(cible);
-  if (mode !== "jeu") return;
-  if (e.code === "Escape") return sortirDuJeu();
-  if (e.code === "KeyP" && etatJeu) envoyer("/api/pause", { pause: !etatJeu.pause });
-  changerTouche(e, true);
 });
-addEventListener("blur", () => {
-  for (const nom in touchesJeu) touchesJeu[nom] = false;
-  if (mode === "jeu") envoyer("/api/touches", touchesJeu);
-});
-addEventListener("keyup", (e) => {
-  touches[e.code] = false;
-  if (mode === "jeu") changerTouche(e, false);
-});
-function changerTouche(e, appuye) {
-  const nom = TOUCHES_JEU[e.code];
-  if (!nom) return;
-  e.preventDefault();
-  if (touchesJeu[nom] !== appuye) {
-    touchesJeu[nom] = appuye;
-    envoyer("/api/touches", touchesJeu);
-  }
-}
+addEventListener("keyup", (e) => (touches[e.code] = false));
 
 function utiliser(borne) {
   if (borne.p.numero !== 10) {
-    envoyer(`/api/lancer/${borne.p.numero}`).then((r) => montrerInfo(r.ok ? "LANCÉ DANS UN TERMINAL" : "BIENTÔT DISPONIBLE"));
+    fetch(`/api/lancer/${borne.p.numero}`, { method: "POST" }).then((r) => r.json())
+      .then((r) => montrerInfo(r.ok ? "LANCÉ DANS UN TERMINAL" : "BIENTÔT DISPONIBLE"));
     return;
   }
   mode = "transition";
@@ -368,12 +345,10 @@ function utiliser(borne) {
   $("info").classList.add("cache");
   $("accueil").classList.add("cache");
   $("aide").textContent = "← → BOUGER · ESPACE TIRER · P PAUSE · ÉCHAP SORTIR";
-  envoyer("/api/pause", { pause: false });
 }
 function sortirDuJeu() {
-  for (const nom in touchesJeu) touchesJeu[nom] = false;
-  envoyer("/api/touches", touchesJeu);
-  envoyer("/api/pause", { pause: true });
+  jeu.activer(false);
+  jeu.canvas.classList.add("cache");
   mode = "transition";
   transition = { de: camera.position.clone(), deQ: camera.quaternion.clone(), vers: retour.position, versQ: retour.quaternion, t: 0, puis: "salle" };
   $("aide").textContent = "ZQSD BOUGER · SOURIS REGARDER · E JOUER";
@@ -433,9 +408,29 @@ rendu.setAnimationLoop((maintenant) => {
     if (transition.t === 1) {
       mode = transition.puis;
       if (mode === "salle") $("accueil").classList.remove("cache");
+      if (mode === "jeu") { jeu.canvas.classList.remove("cache"); jeu.activer(true); }
     }
   }
-  ecranJeu.dessiner(maintenant);
-  texJeu.needsUpdate = true;
+  // Pendant la partie, la 3D est figée : seul le jeu 2D est dessiné.
+  if (mode === "jeu") return jeu.dessiner(maintenant);
+  // Dans la salle, l'écran de la borne 10 n'est rafraîchi qu'environ 12 fois par seconde.
+  if (maintenant - dernierEcran > 80) {
+    dernierEcran = maintenant;
+    jeu.dessiner(maintenant);
+    texJeu.needsUpdate = true;
+  }
+  ajusterQualite(maintenant);
   rendu.render(scene, camera);
 });
+
+// Si le PC rame, on baisse la résolution du rendu 3D (et on la remonte s'il est à l'aise).
+let dernierEcran = 0, images = 0, debutMesure = performance.now();
+function ajusterQualite(maintenant) {
+  images++;
+  if (maintenant - debutMesure < 2000) return;
+  const fps = (images * 1000) / (maintenant - debutMesure);
+  images = 0;
+  debutMesure = maintenant;
+  const nouvelle = fps < 40 ? Math.max(0.5, qualite - 0.15) : fps > 57 ? Math.min(QUALITE_MAX, qualite + 0.1) : qualite;
+  if (nouvelle !== qualite) rendu.setPixelRatio((qualite = nouvelle));
+}

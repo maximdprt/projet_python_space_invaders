@@ -22,6 +22,9 @@
   #info { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); padding: 10px 16px; background: #0009;
     border: 1px solid #ff2bd6; border-radius: 6px; white-space: nowrap; }
   #aide { position: fixed; left: 16px; bottom: 14px; color: #8f7fbf; }
+  canvas.plein { position: fixed; inset: 0; margin: auto; width: min(94vw, 118vh); height: auto; border: 3px solid #ff2bd6;
+    border-radius: 14px; box-shadow: 0 0 24px #ff2bd6aa, 0 0 80px #22f5ff33; }
+  #simple { color: #8f7fbf; font-size: 10px; text-decoration: underline; }
   .cache { display: none !important; }
 </style>
 </head>
@@ -30,10 +33,15 @@
   <h1>EUGENIA <span>ARCADE</span></h1>
   <p>ZQSD : se déplacer · SOURIS : regarder · MAJ : courir<br>E : jouer à une borne · ÉCHAP : quitter la borne</p>
   <b>CLIQUE POUR ENTRER</b>
+  <a id="simple" href="#simple" onclick="event.stopPropagation(); location.hash = 'simple'; location.reload()">PC LENT ? MODE SIMPLE (JEU SEUL EN 2D)</a>
 </div>
 <div id="viseur" class="cache"></div>
 <div id="info" class="cache"></div>
 <div id="aide">ZQSD BOUGER · SOURIS REGARDER · E JOUER</div>
-<script type="module" src="salle.js"></script>
+<script type="module">
+  // Sans carte graphique compatible (ou sur demande), on charge seulement le jeu en 2D.
+  const webgl = !!document.createElement("canvas").getContext("webgl2");
+  import(location.hash === "#simple" || !webgl ? "./simple.js" : "./salle.js");
+</script>
 </body>
 </html>

@@ -28,6 +28,7 @@ class Moteur:
         self.touches = {"gauche": False, "droite": False, "tir": False}
         self.tir_en_attente = False
         self.en_pause = False
+        self.spectateurs = 0
         self.image = "{}"
         self.numero = 0
         self.signal = threading.Condition()
@@ -40,9 +41,10 @@ class Moteur:
                 self.tir_en_attente = False
                 if not self.en_pause:
                     self.partie.mettre_a_jour(self.touches["gauche"], self.touches["droite"], tir)
-                etat = self.partie.etat()
-                etat["pause"] = self.en_pause
-                self.image = json.dumps(etat, separators=(",", ":"))
+                if self.spectateurs > 0:
+                    etat = self.partie.etat()
+                    etat["pause"] = self.en_pause
+                    self.image = json.dumps(etat, separators=(",", ":"))
                 self.numero += 1
                 self.signal.notify_all()
             prochain += TICK
@@ -119,6 +121,7 @@ class Gestionnaire(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         vu = -1
+        moteur.spectateurs += 1
         try:
             while True:
                 with moteur.signal:
@@ -128,6 +131,8 @@ class Gestionnaire(SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             moteur.appuyer({})
             moteur.pause(True)
+        finally:
+            moteur.spectateurs -= 1
 
     def log_message(self, format, *args):
         pass

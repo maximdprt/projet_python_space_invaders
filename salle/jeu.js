@@ -1,4 +1,4 @@
-// Dessine sur un canvas 800x600 l'état envoyé par Python. Aucune règle du jeu ici.
+// Affiche le jeu Python sur un canvas 800x600 et lui envoie les touches. Aucune règle du jeu ici.
 const L = 800, H = 600;
 
 const COULEURS = {
@@ -65,7 +65,7 @@ crt.width = L; crt.height = H;
 }
 const etoiles = Array.from({ length: 90 }, () => ({ x: Math.random() * L, y: Math.random() * H, v: 0.2 + Math.random() * 1.2 }));
 
-export function creerEcranJeu() {
+export function creerJeu() {
   const canvas = document.createElement("canvas");
   canvas.width = L; canvas.height = H;
   const ctx = canvas.getContext("2d");
@@ -76,7 +76,7 @@ export function creerEcranJeu() {
     ctx.font = `${taille}px Pixel`;
     ctx.textAlign = align;
     ctx.fillStyle = ctx.shadowColor = couleur;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = taille >= 20 ? 12 : 0;
     ctx.fillText(t, x, y);
     ctx.shadowBlur = 0;
   }
@@ -165,5 +165,38 @@ export function creerEcranJeu() {
     ctx.drawImage(crt, 0, 0);
   }
 
-  return { canvas, recevoir, dessiner };
+  // ---------- Connexion au jeu Python et touches ----------
+  new EventSource("/api/flux").onmessage = (m) => recevoir(JSON.parse(m.data));
+  const envoyer = (route, donnees) => fetch(route, { method: "POST", body: JSON.stringify(donnees) });
+  const TOUCHES = { ArrowLeft: "gauche", ArrowRight: "droite", KeyA: "gauche", KeyD: "droite", Space: "tir" };
+  const touches = { gauche: false, droite: false, tir: false };
+  let actif = false, quitter = () => {};
+  function changer(e, appuye) {
+    const nom = TOUCHES[e.code];
+    if (!nom) return;
+    e.preventDefault();
+    if (touches[nom] !== appuye) {
+      touches[nom] = appuye;
+      envoyer("/api/touches", touches);
+    }
+  }
+  function relacher() {
+    for (const nom in touches) touches[nom] = false;
+    envoyer("/api/touches", touches);
+  }
+  addEventListener("keydown", (e) => {
+    if (!actif) return;
+    if (e.code === "Escape") return quitter();
+    if (e.code === "KeyP" && etat) envoyer("/api/pause", { pause: !etat.pause });
+    changer(e, true);
+  });
+  addEventListener("keyup", (e) => actif && changer(e, false));
+  addEventListener("blur", () => actif && relacher());
+  function activer(oui) {
+    actif = oui;
+    relacher();
+    envoyer("/api/pause", { pause: !oui });
+  }
+
+  return { canvas, dessiner, activer, surQuitter: (f) => (quitter = f) };
 }
