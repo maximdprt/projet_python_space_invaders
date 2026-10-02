@@ -3,8 +3,9 @@ import { demarrerMoteur } from "./moteurs.js";
 
 const L = 800, H = 600;
 const TACTILE = matchMedia("(hover: none) and (pointer: coarse)").matches;
-// Sur téléphone, le canvas est affiché plus petit : on grossit le texte du HUD.
-const K = TACTILE ? 1.4 : 1;
+// Sur téléphone, le canvas est affiché plus petit : on grossit le texte du HUD et les sprites.
+const K = TACTILE ? 1.6 : 1;
+const Z = TACTILE ? 1.3 : 1;
 
 const COULEURS = {
   meduse: "#22f5ff", crabe: "#ff2bd6", poulpe: "#7dff3a", tir: "#22f5ff", plasma: "#ff2bd6", bonus: "#ffc83d",
@@ -130,10 +131,10 @@ export function creerJeu() {
     }
     const perdu = etat.statut === "perdu";
     texte(perdu ? "GAME OVER" : "SPACE INVADERS", L / 2, 160, perdu ? 40 : 36, perdu ? "#ff3b3b" : "#ff2bd6");
-    if (perdu) texte(`SCORE ${etat.score}   RECORD ${record}`, L / 2, 220, 16, "#ffc83d");
+    if (perdu) texte(`SCORE ${etat.score}   RECORD ${record}`, L / 2, 220, 16 * K, "#ffc83d");
     ["poulpe", "crabe", "meduse", "bonus"].forEach((sorte, i) => {
-      centrer(ctx, sprite(sorte, Math.floor(temps / 500)), 300, 280 + i * 46);
-      texte(sorte === "bonus" ? "= NOUVELLE FORME" : `= ${[30, 20, 10][i]} PTS`, 340, 288 + i * 46, 14, COULEURS[sorte], "left");
+      centrer(ctx, sprite(sorte, Math.floor(temps / 500)), 300 - 40 * (K - 1), 280 + i * 46, Z);
+      texte(sorte === "bonus" ? "= NOUVELLE FORME" : `= ${[30, 20, 10][i]} PTS`, 340 - 40 * (K - 1), 288 + i * 46, 14 * K, COULEURS[sorte], "left");
     });
     const consigne = TACTILE ? (perdu ? "TOUCHE POUR REJOUER" : "TOUCHE L'ÉCRAN POUR JOUER") : (perdu ? "ESPACE POUR REJOUER" : "APPUIE SUR ESPACE");
     if (Math.floor(temps / 500) % 2) texte(consigne, L / 2, 500, 18 * K);
@@ -150,14 +151,15 @@ export function creerJeu() {
     if (!etat) return texte("CHARGEMENT DU JEU PYTHON...", L / 2, H / 2, 16, "#22f5ff");
     if (secousse > 0) ctx.translate((Math.random() - 0.5) * secousse, (Math.random() - 0.5) * secousse--);
     const image = Math.floor(temps / 400);
-    for (const e of etat.ennemis) centrer(ctx, sprite(e.sorte, image), e.x + e.largeur / 2, e.y + e.hauteur / 2);
-    for (const b of etat.bonus) centrer(ctx, sprite("bonus", image), b.x + b.largeur / 2, b.y + b.hauteur / 2);
+    for (const e of etat.ennemis) centrer(ctx, sprite(e.sorte, image), e.x + e.largeur / 2, e.y + e.hauteur / 2, Z);
+    for (const b of etat.bonus) centrer(ctx, sprite("bonus", image), b.x + b.largeur / 2, b.y + b.hauteur / 2, Z);
     ctx.globalCompositeOperation = "lighter";
     for (const m of etat.missiles) {
+      const l = m.largeur * Z, x = m.x + (m.largeur - l) / 2;
       ctx.fillStyle = COULEURS[m.sorte] + "55";
-      ctx.fillRect(m.x - 3, m.y - 3, m.largeur + 6, m.hauteur + 6);
+      ctx.fillRect(x - 3, m.y - 3, l + 6, m.hauteur + 6);
       ctx.fillStyle = COULEURS[m.sorte];
-      ctx.fillRect(m.x, m.y, m.largeur, m.hauteur);
+      ctx.fillRect(x, m.y, l, m.hauteur);
     }
     particules = particules.filter((p) => p.vie-- > 0);
     for (const p of particules) {
@@ -171,8 +173,8 @@ export function creerJeu() {
     const v = etat.vaisseau;
     if (etat.statut !== "accueil" && !(v.invincible && image % 2)) {
       ctx.fillStyle = Math.random() < 0.5 ? "#ff9d2b" : "#22f5ff";
-      ctx.fillRect(v.x + v.largeur / 2 - 4, v.y + v.hauteur + 2, 8, 4 + Math.random() * 8);
-      centrer(ctx, sprite(v.sorte, 0), v.x + v.largeur / 2, v.y + v.hauteur / 2);
+      ctx.fillRect(v.x + v.largeur / 2 - 4, v.y + v.hauteur * (1 + Z) / 2 + 2, 8, 4 + Math.random() * 8);
+      centrer(ctx, sprite(v.sorte, 0), v.x + v.largeur / 2, v.y + v.hauteur / 2, Z);
     }
     hud(temps);
     if (etat.statut !== "en_cours" || etat.pause) ecranTitre(temps);
@@ -298,6 +300,12 @@ export function creerJeu() {
   });
   function activer(oui) {
     actif = oui;
+    // Android en plein écran : la borne passe en paysage, où le jeu est bien plus grand.
+    const o = screen.orientation;
+    if (TACTILE && o && o.lock) {
+      if (oui) o.lock("landscape").catch(() => {});
+      else o.unlock();
+    }
     relacher();
     moteur.pause(!oui);
   }

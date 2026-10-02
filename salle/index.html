@@ -44,9 +44,13 @@
   canvas.plein { position: fixed; inset: 0; margin: auto; width: min(94vw, 118vh); height: auto; border: 3px solid #ff2bd6;
     border-radius: 14px; box-shadow: 0 0 24px #ff2bd6aa, 0 0 80px #22f5ff33; }
   body.tactile.enjeu::before { content: ""; position: fixed; inset: 0; background: radial-gradient(#1c0830f2, #07020ff7); }
-  body.tactile canvas.plein { top: calc(var(--haut) + 64px); bottom: calc(var(--bas) + 132px); border-width: 2px; border-radius: 10px;
-    width: min(100vw - 24px - var(--gauche) - var(--droite), (100vh - var(--haut) - var(--bas) - 196px) * 4 / 3);
-    width: min(100vw - 24px - var(--gauche) - var(--droite), (100dvh - var(--haut) - var(--bas) - 196px) * 4 / 3); }
+  /* Portrait : le jeu (4:3) prend toute la largeur, bord à bord. */
+  body.tactile canvas.plein { top: calc(var(--haut) + 64px); bottom: calc(var(--bas) + 132px); border-width: 2px 0; border-radius: 0;
+    width: min(100vw - var(--gauche) - var(--droite), (100vh - var(--haut) - var(--bas) - 196px) * 4 / 3);
+    width: min(100vw - var(--gauche) - var(--droite), (100dvh - var(--haut) - var(--bas) - 196px) * 4 / 3); }
+  #tourner { position: fixed; left: 0; right: 0; bottom: calc(var(--bas) + 140px); text-align: center; font-size: 9px;
+    color: #8f7fbf; display: none; pointer-events: none; }
+  @media (orientation: portrait) and (max-aspect-ratio: 10/16) { body.tactile.enjeu #tourner { display: block; } }
 
   #tactile { position: fixed; inset: auto 0 0 0; display: none; justify-content: space-between; align-items: flex-end; gap: 12px;
     padding: 0 calc(var(--droite) + 16px) calc(var(--bas) + 18px) calc(var(--gauche) + 16px); pointer-events: none; z-index: 10; }
@@ -69,9 +73,10 @@
   body.tactile.enjeu .btn-haut { display: block; }
 
   @media (orientation: landscape) {
-    body.tactile canvas.plein { top: calc(var(--haut) + 8px); bottom: calc(var(--bas) + 8px);
-      width: min(100vw - 2 * (166px + max(var(--gauche), var(--droite))), (100vh - var(--haut) - var(--bas) - 16px) * 4 / 3);
-      width: min(100vw - 2 * (166px + max(var(--gauche), var(--droite))), (100dvh - var(--haut) - var(--bas) - 16px) * 4 / 3); }
+    /* Paysage : le jeu prend toute la hauteur, les commandes restent sur les côtés. */
+    body.tactile canvas.plein { top: var(--haut); bottom: var(--bas); border-width: 0 2px; border-radius: 0;
+      width: min(100vw - 2 * (156px + max(var(--gauche), var(--droite))), (100vh - var(--haut) - var(--bas)) * 4 / 3);
+      width: min(100vw - 2 * (156px + max(var(--gauche), var(--droite))), (100dvh - var(--haut) - var(--bas)) * 4 / 3); }
     #barre { width: 140px; }
     #btn-tir { width: 84px; height: 84px; margin-right: 28px; }
   }
@@ -104,6 +109,7 @@
 <button id="action">JOUER</button>
 <button id="pause" class="btn-haut" aria-label="Pause">II</button>
 <button id="sortir" class="btn-haut">SORTIR</button>
+<div id="tourner">↻ TOURNE TON TÉLÉPHONE : JEU PLUS GRAND</div>
 <div id="tactile">
   <div id="barre"><div class="curseur"></div></div>
   <button id="btn-tir" aria-label="Tirer">🔥</button>
