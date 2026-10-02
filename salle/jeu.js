@@ -2,6 +2,9 @@
 import { demarrerMoteur } from "./moteurs.js";
 
 const L = 800, H = 600;
+const TACTILE = matchMedia("(hover: none) and (pointer: coarse)").matches;
+// Sur téléphone, le canvas est affiché plus petit : on grossit le texte du HUD.
+const K = TACTILE ? 1.4 : 1;
 
 const COULEURS = {
   meduse: "#22f5ff", crabe: "#ff2bd6", poulpe: "#7dff3a", tir: "#22f5ff", plasma: "#ff2bd6", bonus: "#ffc83d",
@@ -103,11 +106,11 @@ export function creerJeu() {
   }
 
   function hud(temps) {
-    texte(`SCORE ${etat.score}`, 16, 30, 14, "#fff", "left");
-    texte(`RECORD ${record}`, L / 2, 30, 14, "#ffc83d");
-    texte(`VAGUE ${etat.vague}`, L - 16, 30, 14, "#22f5ff", "right");
-    texte(`FORME ${etat.forme}/5 ${etat.vaisseau.sorte.toUpperCase()}`, 16, 56, 10, COULEURS[etat.vaisseau.sorte], "left");
-    if (etat.duree_forme > 0) texte(`TEMPS ${(etat.duree_forme / 60).toFixed(1)}s`, 16, 72, 10, COULEURS[etat.vaisseau.sorte], "left");
+    texte(`SCORE ${etat.score}`, 16, 16 + 14 * K, 14 * K, "#fff", "left");
+    texte(`RECORD ${record}`, L / 2, 16 + 14 * K, 14 * K, "#ffc83d");
+    texte(`VAGUE ${etat.vague}`, L - 16, 16 + 14 * K, 14 * K, "#22f5ff", "right");
+    texte(`FORME ${etat.forme}/5 ${etat.vaisseau.sorte.toUpperCase()}`, 16, 32 + 24 * K, 10 * K, COULEURS[etat.vaisseau.sorte], "left");
+    if (etat.duree_forme > 0) texte(`TEMPS ${(etat.duree_forme / 60).toFixed(1)}s`, 16, 32 + 40 * K, 10 * K, COULEURS[etat.vaisseau.sorte], "left");
     const icone = sprite(etat.vaisseau.sorte, 0);
     for (let i = 0; i < etat.vies; i++) centrer(ctx, icone, 30 + i * 40, H - 14, 0.4);
     ctx.fillStyle = "#ff2bd6";
@@ -121,7 +124,10 @@ export function creerJeu() {
   function ecranTitre(temps) {
     ctx.fillStyle = "rgba(5,0,15,.75)";
     ctx.fillRect(0, 0, L, H);
-    if (etat.pause) return texte("PAUSE", L / 2, H / 2, 32, "#22f5ff");
+    if (etat.pause) {
+      texte("PAUSE", L / 2, H / 2, 32, "#22f5ff");
+      return texte(TACTILE ? "TOUCHE L'ÉCRAN POUR REPRENDRE" : "P POUR REPRENDRE", L / 2, H / 2 + 50, 16 * K);
+    }
     const perdu = etat.statut === "perdu";
     texte(perdu ? "GAME OVER" : "SPACE INVADERS", L / 2, 160, perdu ? 40 : 36, perdu ? "#ff3b3b" : "#ff2bd6");
     if (perdu) texte(`SCORE ${etat.score}   RECORD ${record}`, L / 2, 220, 16, "#ffc83d");
@@ -129,7 +135,8 @@ export function creerJeu() {
       centrer(ctx, sprite(sorte, Math.floor(temps / 500)), 300, 280 + i * 46);
       texte(sorte === "bonus" ? "= NOUVELLE FORME" : `= ${[30, 20, 10][i]} PTS`, 340, 288 + i * 46, 14, COULEURS[sorte], "left");
     });
-    if (Math.floor(temps / 500) % 2) texte(perdu ? "ESPACE POUR REJOUER" : "APPUIE SUR ESPACE", L / 2, 500, 18);
+    const consigne = TACTILE ? (perdu ? "TOUCHE POUR REJOUER" : "TOUCHE L'ÉCRAN POUR JOUER") : (perdu ? "ESPACE POUR REJOUER" : "APPUIE SUR ESPACE");
+    if (Math.floor(temps / 500) % 2) texte(consigne, L / 2, 500, 18 * K);
   }
 
   function dessiner(temps) {
@@ -194,17 +201,19 @@ export function creerJeu() {
   addEventListener("keydown", (e) => {
     if (!actif) return;
     if (e.code === "Escape") return quitter();
-    if (e.code === "KeyP" && etat) moteur.pause(!etat.pause);
+    if (e.code === "KeyP") basculerPause();
     changer(e, true);
   });
   addEventListener("keyup", (e) => actif && changer(e, false));
   addEventListener("blur", () => actif && relacher());
+  const basculerPause = () => etat && moteur.pause(!etat.pause);
   function brancherBouton(id, nom) {
     const bouton = document.getElementById(id);
     if (!bouton) return;
     const presser = (appuye) => (e) => {
       if (!actif) return;
       e.preventDefault();
+      bouton.classList.toggle("appuye", appuye);
       if (touches[nom] !== appuye) {
         touches[nom] = appuye;
         moteur.touches(touches);
@@ -218,6 +227,14 @@ export function creerJeu() {
     bouton.addEventListener("mouseleave", presser(false));
   }
   brancherBouton("btn-tir", "tir");
+  document.getElementById("pause").addEventListener("click", () => actif && basculerPause());
+  document.getElementById("sortir").addEventListener("click", () => actif && quitter());
+  // Appli quittée ou écran verrouillé : la partie se met en pause toute seule.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden || !actif) return;
+    relacher();
+    if (etat && etat.statut === "en_cours" && !etat.pause) moteur.pause(true);
+  });
   // Barre latérale : glisser le doigt à gauche ou à droite pour bouger.
   const barre = document.getElementById("barre");
   const curseur = barre && barre.querySelector(".curseur");
@@ -233,7 +250,7 @@ export function creerJeu() {
       touches.droite = droite;
       moteur.touches(touches);
     }
-    curseur.style.left = `calc(${50 + dx * 42}% - 28px)`;
+    curseur.style.left = `${r.width / 2 - 28 + dx * (r.width / 2 - 35)}px`;
   }
   function relacherBarre() {
     doigtBarre = null;
@@ -266,10 +283,11 @@ export function creerJeu() {
     addEventListener("mousemove", (e) => { if (actif && doigtBarre === -1) majBarre(e.clientX); });
     addEventListener("mouseup", () => { if (doigtBarre === -1) relacherBarre(); });
   }
-  // Taper le canvas tire aussi (écran de titre : lance la partie).
+  // Taper le canvas tire aussi (écran de titre : lance la partie ; en pause : reprend).
   canvas.addEventListener("touchstart", (e) => {
     if (!actif) return;
     e.preventDefault();
+    if (etat && etat.pause) return moteur.pause(false);
     touches.tir = true;
     moteur.touches(touches);
   }, { passive: false });

@@ -2,77 +2,111 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07020f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>EugeniArcade</title>
 <script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
 <style>
   @font-face { font-family: "Pixel"; src: url("lib/police.woff2") format("woff2"); }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #07020f; color: #fff; font: 12px "Pixel", monospace; }
+  :root { --haut: env(safe-area-inset-top, 0px); --bas: env(safe-area-inset-bottom, 0px);
+    --gauche: env(safe-area-inset-left, 0px); --droite: env(safe-area-inset-right, 0px); }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07020f; color: #fff; font: 12px "Pixel", monospace;
+    overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  body.tactile { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  body.tactile .pc, body:not(.tactile) .mobile { display: none; }
   canvas { display: block; }
-  #accueil { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 28px;
-    background: radial-gradient(#2a0838cc, #07020fee); cursor: pointer; }
-  #accueil h1 { margin: 0; font-size: 42px; color: #ff2bd6; text-shadow: 0 0 12px #ff2bd6, 0 0 40px #ff2bd6; }
+  button { font-family: "Pixel", monospace; touch-action: manipulation; user-select: none; -webkit-user-select: none; cursor: pointer; }
+
+  #accueil { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center;
+    gap: clamp(14px, 4vh, 28px); padding: calc(var(--haut) + 16px) calc(var(--droite) + 16px) calc(var(--bas) + 16px) calc(var(--gauche) + 16px);
+    background: radial-gradient(#2a0838cc, #07020fee); cursor: pointer; z-index: 20; }
+  #accueil h1 { margin: 0; font-size: clamp(20px, 7vw, 42px); color: #ff2bd6; text-shadow: 0 0 12px #ff2bd6, 0 0 40px #ff2bd6; }
   #accueil h1 span { color: #22f5ff; text-shadow: 0 0 12px #22f5ff, 0 0 40px #22f5ff; }
-  #accueil p { margin: 0; line-height: 2.2; color: #c9b8ff; }
+  #accueil p { margin: 0; line-height: 2.2; color: #c9b8ff; font-size: clamp(9px, 2.8vw, 12px); }
   #accueil b { color: #ffc83d; animation: clignote 1s steps(2) infinite; }
   @keyframes clignote { 50% { opacity: 0; } }
+  #simple { color: #8f7fbf; font-size: 10px; text-decoration: underline; padding: 8px; }
+  @media (max-height: 460px) { #accueil p { line-height: 1.8; } }
+
   #viseur { position: fixed; left: 50%; top: 50%; width: 10px; height: 10px; margin: -7px; border: 2px solid #22f5ff;
-    border-radius: 50%; box-shadow: 0 0 8px #22f5ff; transition: .15s; }
+    border-radius: 50%; box-shadow: 0 0 8px #22f5ff; transition: .15s; pointer-events: none; }
   #viseur.actif { width: 22px; height: 22px; margin: -13px; border-color: #ff2bd6; box-shadow: 0 0 12px #ff2bd6; }
   #info { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); padding: 10px 16px; background: #0009;
-    border: 1px solid #ff2bd6; border-radius: 6px; white-space: nowrap; }
-  #aide { position: fixed; left: 16px; bottom: 14px; color: #8f7fbf; }
+    border: 1px solid #ff2bd6; border-radius: 6px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box;
+    text-align: center; line-height: 1.6; pointer-events: none; }
+  #aide { position: fixed; left: 16px; bottom: 14px; color: #8f7fbf; pointer-events: none; }
+  body.tactile #aide { left: 0; right: 0; bottom: auto; top: calc(var(--haut) + 14px); padding: 0 16px; text-align: center; font-size: 9px; line-height: 1.8; }
+  body.tactile.enjeu #aide { display: none; }
+
   canvas.plein { position: fixed; inset: 0; margin: auto; width: min(94vw, 118vh); height: auto; border: 3px solid #ff2bd6;
     border-radius: 14px; box-shadow: 0 0 24px #ff2bd6aa, 0 0 80px #22f5ff33; }
-  #simple { color: #8f7fbf; font-size: 10px; text-decoration: underline; }
-  #tactile { position: fixed; inset: auto 0 0 0; display: none; justify-content: space-between; align-items: center;
-    padding: 0 18px 18px; pointer-events: none; z-index: 10; }
-  #tactile button { pointer-events: auto; width: 76px; height: 76px; border-radius: 50%; border: 2px solid #22f5ff;
-    background: #0a0318cc; color: #22f5ff; font: 32px "Pixel", monospace; box-shadow: 0 0 12px #22f5ff88;
-    touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-  #tactile button:active { background: #22f5ff33; }
-  #tactile .tir { border-color: #ff2bd6; color: #ff2bd6; box-shadow: 0 0 12px #ff2bd688; width: 92px; height: 92px; font-size: 36px; }
-  #barre { pointer-events: auto; position: relative; width: min(60vw, 320px); height: 70px; border: 2px solid #22f5ff;
-    border-radius: 35px; background: #0a0318cc; box-shadow: 0 0 12px #22f5ff88; touch-action: none; user-select: none; -webkit-user-select: none; }
+  body.tactile.enjeu::before { content: ""; position: fixed; inset: 0; background: radial-gradient(#1c0830f2, #07020ff7); }
+  body.tactile canvas.plein { top: calc(var(--haut) + 64px); bottom: calc(var(--bas) + 132px); border-width: 2px; border-radius: 10px;
+    width: min(100vw - 24px - var(--gauche) - var(--droite), (100vh - var(--haut) - var(--bas) - 196px) * 4 / 3);
+    width: min(100vw - 24px - var(--gauche) - var(--droite), (100dvh - var(--haut) - var(--bas) - 196px) * 4 / 3); }
+
+  #tactile { position: fixed; inset: auto 0 0 0; display: none; justify-content: space-between; align-items: flex-end; gap: 12px;
+    padding: 0 calc(var(--droite) + 16px) calc(var(--bas) + 18px) calc(var(--gauche) + 16px); pointer-events: none; z-index: 10; }
+  body.tactile.enjeu #tactile { display: flex; }
+  #btn-tir { pointer-events: auto; flex: none; width: 92px; height: 92px; border-radius: 50%; border: 2px solid #ff2bd6; padding: 0;
+    background: #0a0318cc; color: #ff2bd6; font-size: 36px; box-shadow: 0 0 12px #ff2bd688; }
+  #btn-tir:active, #btn-tir.appuye { background: #ff2bd633; }
+  #barre { pointer-events: auto; position: relative; flex: none; width: min(58vw, 320px); height: 70px; border: 2px solid #22f5ff;
+    border-radius: 35px; background: #0a0318cc; box-shadow: 0 0 12px #22f5ff88; touch-action: none; }
   #barre::before, #barre::after { position: absolute; top: 50%; transform: translateY(-50%); font: 24px "Pixel", monospace; color: #22f5ff88; }
   #barre::before { content: "◀"; left: 16px; }
   #barre::after { content: "▶"; right: 16px; }
   #barre .curseur { position: absolute; top: 7px; left: calc(50% - 28px); width: 56px; height: 56px; border-radius: 50%;
     background: #22f5ffcc; box-shadow: 0 0 10px #22f5ff; transition: left .08s linear; }
-  body.tactile.enjeu #tactile { display: flex; }
-  body.tactile #aide { font-size: 10px; }
-  #joystick { position: fixed; left: 32px; bottom: 32px; width: 120px; height: 120px; border: 2px solid #22f5ff66;
-    border-radius: 50%; background: #0a031888; display: none; z-index: 9; pointer-events: none; }
+
+  .btn-haut { position: fixed; top: calc(var(--haut) + 12px); padding: 12px 16px; border: 2px solid #ff2bd6; border-radius: 8px;
+    background: #0a0318cc; color: #ff2bd6; font-size: 12px; display: none; z-index: 11; }
+  #sortir { right: calc(var(--droite) + 12px); }
+  #pause { left: calc(var(--gauche) + 12px); border-color: #22f5ff; color: #22f5ff; }
+  body.tactile.enjeu .btn-haut { display: block; }
+
+  @media (orientation: landscape) {
+    body.tactile canvas.plein { top: calc(var(--haut) + 8px); bottom: calc(var(--bas) + 8px);
+      width: min(100vw - 2 * (166px + max(var(--gauche), var(--droite))), (100vh - var(--haut) - var(--bas) - 16px) * 4 / 3);
+      width: min(100vw - 2 * (166px + max(var(--gauche), var(--droite))), (100dvh - var(--haut) - var(--bas) - 16px) * 4 / 3); }
+    #barre { width: 140px; }
+    #btn-tir { width: 84px; height: 84px; margin-right: 28px; }
+  }
+
+  #joystick { position: fixed; left: calc(var(--gauche) + 32px); bottom: calc(var(--bas) + 32px); width: 120px; height: 120px;
+    border: 2px solid #22f5ff66; border-radius: 50%; background: #0a031888; display: none; z-index: 9; pointer-events: none; opacity: .6; }
+  #joystick.actif { opacity: 1; }
   #joystick::after { content: ""; position: absolute; left: var(--jx, 50%); top: var(--jy, 50%); width: 44px; height: 44px;
     margin: -22px; border-radius: 50%; background: #22f5ffcc; box-shadow: 0 0 12px #22f5ff; }
-  #action { position: fixed; right: 32px; bottom: 32px; padding: 18px 24px; border: 2px solid #ff2bd6;
-    border-radius: 12px; background: #0a0318cc; color: #ff2bd6; font: 16px "Pixel", monospace;
-    box-shadow: 0 0 12px #ff2bd688; display: none; z-index: 9; touch-action: manipulation; user-select: none; }
   body.tactile.ensalle #joystick { display: block; }
+  #action { position: fixed; right: calc(var(--droite) + 32px); bottom: calc(var(--bas) + 40px); padding: 20px 26px; border: 2px solid #ff2bd6;
+    border-radius: 12px; background: #0a0318cc; color: #ff2bd6; font-size: 16px; box-shadow: 0 0 12px #ff2bd688; display: none; z-index: 9; }
   body.tactile.ensalle.cible #action { display: block; }
-  #sortir { position: fixed; right: 16px; top: 16px; padding: 10px 14px; border: 2px solid #ff2bd6;
-    border-radius: 8px; background: #0a0318cc; color: #ff2bd6; font: 12px "Pixel", monospace;
-    display: none; z-index: 11; touch-action: manipulation; user-select: none; }
-  body.tactile.enjeu #sortir { display: block; }
   .cache { display: none !important; }
 </style>
 </head>
 <body>
 <div id="accueil">
   <h1>EUGENI<span>ARCADE</span></h1>
-  <p>ZQSD : se déplacer · SOURIS : regarder · MAJ : courir<br>E : jouer à une borne · ÉCHAP : quitter la borne</p>
-  <b>CLIQUE POUR ENTRER</b>
-  <a id="simple" href="#simple" onclick="event.stopPropagation(); location.hash = 'simple'; location.reload()">PC LENT ? MODE SIMPLE (JEU SEUL EN 2D)</a>
+  <p class="pc">ZQSD : se déplacer · SOURIS : regarder · MAJ : courir<br>E : jouer à une borne · ÉCHAP : quitter la borne</p>
+  <p class="mobile">POUCE GAUCHE : se déplacer<br>POUCE DROIT : regarder<br>BOUTON JOUER : lancer une borne</p>
+  <b class="pc">CLIQUE POUR ENTRER</b>
+  <b class="mobile">TOUCHE POUR ENTRER</b>
+  <a id="simple" href="#simple" onclick="event.stopPropagation(); location.hash = 'simple'; location.reload()">APPAREIL LENT ? MODE SIMPLE (JEU SEUL EN 2D)</a>
 </div>
 <div id="viseur" class="cache"></div>
 <div id="info" class="cache"></div>
 <div id="aide">ZQSD BOUGER · SOURIS REGARDER · E JOUER</div>
 <div id="joystick"></div>
 <button id="action">JOUER</button>
-<button id="sortir">SORTIR</button>
+<button id="pause" class="btn-haut" aria-label="Pause">II</button>
+<button id="sortir" class="btn-haut">SORTIR</button>
 <div id="tactile">
   <div id="barre"><div class="curseur"></div></div>
-  <button id="btn-tir" class="tir" aria-label="Tirer">🔥</button>
+  <button id="btn-tir" aria-label="Tirer">🔥</button>
 </div>
 <script type="module">
   // Sans carte graphique compatible (ou sur demande), on charge seulement le jeu en 2D.

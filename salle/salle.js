@@ -24,6 +24,8 @@ const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 60);
 camera.rotation.order = "YXZ";
 function redimensionner() {
   camera.aspect = innerWidth / innerHeight;
+  // Écran en hauteur (téléphone) : on élargit le champ de vision pour ne pas voir la salle "au zoom".
+  camera.fov = Math.min(100, Math.max(65, (2 * Math.atan(Math.tan(0.6545) / camera.aspect) * 180) / Math.PI));
   camera.updateProjectionMatrix();
   rendu.setSize(innerWidth, innerHeight);
 }
@@ -222,7 +224,6 @@ const jeu = creerJeu();
 jeu.canvas.className = "plein cache";
 document.body.append(jeu.canvas);
 jeu.surQuitter(sortirDuJeu);
-$("sortir").addEventListener("click", () => { if (mode === "jeu") sortirDuJeu(); });
 $("action").addEventListener("click", (e) => {
   e.preventDefault();
   if (mode === "salle" && cible) utiliser(cible);
@@ -349,7 +350,8 @@ camera.position.set(0, 1.65, 6.5);
 
 const TACTILE = matchMedia("(hover: none) and (pointer: coarse)").matches;
 let joy = null, look = null;
-if (TACTILE) $("aide").textContent = "JOYSTICK BOUGER · GLISSER REGARDER · TAP BORNE";
+const AIDE_SALLE = TACTILE ? "POUCE GAUCHE BOUGER · POUCE DROIT REGARDER" : "ZQSD BOUGER · SOURIS REGARDER · E JOUER";
+$("aide").textContent = AIDE_SALLE;
 
 function basculerMode(nom) {
   mode = nom;
@@ -362,6 +364,8 @@ if (TACTILE) {
   $("accueil").onclick = () => {
     $("accueil").classList.add("cache");
     $("viseur").classList.remove("cache");
+    const plein = document.documentElement.requestFullscreen;
+    if (plein) plein.call(document.documentElement).catch(() => {});
   };
   const toucher = rendu.domElement;
   toucher.addEventListener("touchstart", (e) => {
@@ -369,6 +373,9 @@ if (TACTILE) {
     for (const t of e.changedTouches) {
       if (t.clientX < innerWidth / 2 && !joy) {
         joy = { id: t.identifier, x0: t.clientX, y0: t.clientY, dx: 0, dy: 0 };
+        // Le joystick apparaît sous le pouce, là où il s'est posé.
+        Object.assign($("joystick").style, { left: `${t.clientX - 60}px`, top: `${t.clientY - 60}px`, bottom: "auto" });
+        $("joystick").classList.add("actif");
       } else if (!look) {
         look = { id: t.identifier, x: t.clientX, y: t.clientY };
       }
@@ -382,8 +389,8 @@ if (TACTILE) {
         const R = 50;
         joy.dx = Math.max(-R, Math.min(R, t.clientX - joy.x0));
         joy.dy = Math.max(-R, Math.min(R, t.clientY - joy.y0));
-        $("joystick").style.setProperty("--jx", `${50 + joy.dx}%`);
-        $("joystick").style.setProperty("--jy", `${50 + joy.dy}%`);
+        $("joystick").style.setProperty("--jx", `calc(50% + ${joy.dx * 0.76}px)`);
+        $("joystick").style.setProperty("--jy", `calc(50% + ${joy.dy * 0.76}px)`);
       } else if (look && t.identifier === look.id) {
         const dx = t.clientX - look.x, dy = t.clientY - look.y;
         look.x = t.clientX; look.y = t.clientY;
@@ -397,8 +404,8 @@ if (TACTILE) {
     for (const t of e.changedTouches) {
       if (joy && t.identifier === joy.id) {
         joy = null;
-        $("joystick").style.setProperty("--jx", "50%");
-        $("joystick").style.setProperty("--jy", "50%");
+        $("joystick").removeAttribute("style");
+        $("joystick").classList.remove("actif");
       } else if (look && t.identifier === look.id) look = null;
     }
   };
@@ -436,14 +443,14 @@ function utiliser(borne) {
   if (!TACTILE) document.exitPointerLock();
   $("info").classList.add("cache");
   $("accueil").classList.add("cache");
-  $("aide").textContent = TACTILE ? "◀ ▶ BOUGER · 🔥 TIRER" : "← → BOUGER · ESPACE TIRER · P PAUSE · ÉCHAP SORTIR";
+  $("aide").textContent = "← → BOUGER · ESPACE TIRER · P PAUSE · ÉCHAP SORTIR";
 }
 function sortirDuJeu() {
   jeu.activer(false);
   jeu.canvas.classList.add("cache");
   basculerMode("transition");
   transition = { de: camera.position.clone(), deQ: camera.quaternion.clone(), vers: retour.position, versQ: retour.quaternion, t: 0, puis: "salle" };
-  $("aide").textContent = TACTILE ? "JOYSTICK BOUGER · GLISSER REGARDER · TAP BORNE" : "ZQSD BOUGER · SOURIS REGARDER · E JOUER";
+  $("aide").textContent = AIDE_SALLE;
 }
 function montrerInfo(texte) {
   $("info").textContent = texte;
@@ -482,7 +489,7 @@ function viser() {
   if (cible) $("action").textContent = cible.p.numero === 10 ? "JOUER" : "LANCER";
   if (minuterieInfo > 0) return $("info").classList.remove("cache");
   $("info").classList.toggle("cache", !cible);
-  if (cible) $("info").textContent = `${TACTILE ? "TAP" : "[E]"} ${cible.p.numero === 10 ? "JOUER" : "LANCER"} · ${cible.p.numero} · ${cible.p.nom} · ${cible.p.binome}`;
+  if (cible) $("info").textContent = `${TACTILE ? "" : "[E] "}${cible.p.numero === 10 ? "JOUER" : "LANCER"} · ${cible.p.numero} · ${cible.p.nom} · ${cible.p.binome}`;
 }
 
 if (location.hash === "#jeu") utiliser(bornes.at(-1));
